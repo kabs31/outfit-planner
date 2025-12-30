@@ -13,14 +13,23 @@ import logging
 from typing import List
 
 from app.config import settings, get_cors_origins, validate_settings
-from app.database import get_db, init_db, check_db_connection, Product, GeneratedOutfit as DBOutfit, UserFeedback as DBFeedback, SearchQuery as DBSearchQuery
+from app.database import (
+    get_db, 
+    init_db, 
+    check_db_connection, 
+    Product, 
+    GeneratedOutfit as DBOutfit, 
+    UserFeedback as DBFeedback, 
+    SearchQuery as DBSearchQuery,
+    SessionLocal  # 🆕 Added
+)
 from app.models import (
     OutfitPromptRequest,
     OutfitResponse,
     GeneratedOutfit,
     UserFeedbackRequest,
     HealthCheck,
-    ErrorResponse
+    ErrorResponse,
 )
 from app.services.llama_service import llama_service
 from app.services.product_service import product_service
@@ -69,6 +78,25 @@ async def startup_event():
         init_db()
         if check_db_connection():
             logger.info("✅ Database connected")
+            
+            # 🆕 AUTO-SYNC PRODUCTS IF DATABASE IS EMPTY
+            db = SessionLocal()
+            try:
+                product_count = db.query(Product).filter(Product.is_active == True).count()
+                logger.info(f"📦 Products in database: {product_count}")
+                
+                if product_count == 0:
+                    logger.info("🔄 Database empty. Auto-syncing products from API...")
+                    try:
+                        sync_count = await product_service.sync_products_to_db(db)
+                        logger.info(f"✅ Auto-synced {sync_count} products successfully!")
+                    except Exception as sync_error:
+                        logger.error(f"❌ Auto-sync failed: {sync_error}")
+                        logger.info("💡 You can manually sync later: POST /api/v1/products/sync")
+                else:
+                    logger.info("✅ Products already present in database")
+            finally:
+                db.close()
         else:
             logger.warning("⚠️  Database connection failed")
     except Exception as e:

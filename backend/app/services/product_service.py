@@ -163,16 +163,16 @@ class ProductService:
     # ==================== SEMANTIC SEARCH ====================
     
     def search_products(
-        self,
-        db: Session,
-        query: str,
-        category: Optional[str] = None,
-        max_price: Optional[float] = None,
-        limit: int = 10
-    ) -> List[ProductItem]:
+    self,
+    db: Session,
+    query: str,
+    category: Optional[str] = None,
+    max_price: Optional[float] = None,
+    limit: int = 10
+) -> List[ProductItem]:
         """
         Semantic search for products using vector similarity
-        
+
         Args:
             db: Database session
             query: Search query text
@@ -206,12 +206,15 @@ class ProductService:
             # Calculate cosine similarity
             product_scores = []
             for product in products:
-                if product.embedding:
+                if product.embedding is not None:
+                    # 🆕 FIX: Convert embedding to numpy array properly
+                    product_emb = np.array(product.embedding)
+                    
                     # Cosine similarity
-                    similarity = np.dot(query_embedding, product.embedding) / (
-                        np.linalg.norm(query_embedding) * np.linalg.norm(product.embedding)
+                    similarity = np.dot(query_embedding, product_emb) / (
+                        np.linalg.norm(query_embedding) * np.linalg.norm(product_emb)
                     )
-                    product_scores.append((product, similarity))
+                    product_scores.append((product, float(similarity)))
             
             # Sort by similarity
             product_scores.sort(key=lambda x: x[1], reverse=True)
@@ -238,6 +241,8 @@ class ProductService:
             
         except Exception as e:
             logger.error(f"❌ Search failed: {e}")
+            import traceback
+            traceback.print_exc()  # 🆕 Add this for debugging
             return []
     
     # ==================== OUTFIT COMBINATION ====================
