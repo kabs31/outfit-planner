@@ -199,9 +199,15 @@ async def generate_outfits(
         
         # Step 3: Generate virtual try-on images
         logger.info("🎨 Generating try-on images...")
+        
+        # Use local mode if RunPod API is not configured
+        use_local_mode = use_local or not settings.RUNPOD_API_KEY
+        if use_local_mode:
+            logger.info("Using local fallback mode (RunPod not configured)")
+        
         tryon_urls = await tryon_service.generate_multiple_outfits(
             outfit_combinations,
-            use_local=use_local
+            use_local=use_local_mode
         )
         
         # Step 4: Create response with generated outfits

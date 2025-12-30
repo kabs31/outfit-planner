@@ -79,7 +79,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     
     # Model Base Image (for virtual try-on)
-    MODEL_IMAGE_URL: str = "https://example.com/model-base.jpg"  # Replace with your model photo
+    MODEL_IMAGE_URL: str = "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=512"  # Working Unsplash image
     
     class Config:
         env_file = ".env"

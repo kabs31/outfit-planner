@@ -283,20 +283,12 @@ class VirtualTryOnService:
                 
                 upload_data = f"data:image/png;base64,{result_base64}"
             
-            # Upload to Cloudinary
-            logger.info("Uploading to Cloudinary...")
-            upload_result = cloudinary.uploader.upload(
-                upload_data,
-                folder="outfits",
-                use_filename=False,
-                unique_filename=True
-            )
-            
-            image_url = upload_result['secure_url']
+            # Skip Cloudinary upload - return base64 data URL directly
+            logger.info("Skipping Cloudinary upload - returning data URL directly")
             generation_time = time.time() - start_time
             
-            logger.info(f"✅ Outfit image generated in {generation_time:.2f}s: {image_url}")
-            return image_url
+            logger.info(f"✅ Outfit image generated in {generation_time:.2f}s")
+            return upload_data
             
         except Exception as e:
             logger.error(f"❌ Failed to generate outfit image: {e}")

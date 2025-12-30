@@ -1,0 +1,244 @@
+{
+    "products": [
+        {
+            "id": 1,
+            "title": "Classic White T-Shirt",
+            "price": 799,
+            "description": "Essential crew neck t-shirt in pure white. Made from premium cotton for all-day comfort. Perfect for casual wear or layering.",
+            "category": "mens-clothing",
+            "image": "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=500",
+            "rating": {
+                "rate": 4.5,
+                "count": 120
+            }
+        },
+        {
+            "id": 2,
+            "title": "Navy Blue Denim Jeans",
+            "price": 1899,
+            "description": "Classic slim-fit jeans in dark indigo wash. Comfortable stretch denim with modern cut. Perfect for everyday wear.",
+            "category": "mens-clothing",
+            "image": "https://images.unsplash.com/photo-1542272604-787c3835535d?w=500",
+            "rating": {
+                "rate": 4.7,
+                "count": 95
+            }
+        },
+        {
+            "id": 3,
+            "title": "Black Casual Chinos",
+            "price": 1599,
+            "description": "Versatile black chino pants with slim fit. Soft cotton blend fabric perfect for smart-casual occasions.",
+            "category": "mens-clothing",
+            "image": "https://images.unsplash.com/photo-1506629082955-511b1aa562c8?w=500",
+            "rating": {
+                "rate": 4.3,
+                "count": 78
+            }
+        },
+        {
+            "id": 4,
+            "title": "Grey Crew Neck Sweatshirt",
+            "price": 1299,
+            "description": "Comfortable fleece sweatshirt in heather grey. Relaxed fit with ribbed cuffs and hem. Perfect for casual days.",
+            "category": "mens-clothing",
+            "image": "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=500",
+            "rating": {
+                "rate": 4.6,
+                "count": 110
+            }
+        },
+        {
+            "id": 5,
+            "title": "Beige Cargo Shorts",
+            "price": 999,
+            "description": "Practical cargo shorts with multiple pockets. Lightweight cotton perfect for summer and beach activities.",
+            "category": "mens-clothing",
+            "image": "https://images.unsplash.com/photo-1591195853828-11db59a44f6b?w=500",
+            "rating": {
+                "rate": 4.2,
+                "count": 65
+            }
+        },
+        {
+            "id": 6,
+            "title": "Blue Denim Jacket",
+            "price": 2499,
+            "description": "Classic trucker-style denim jacket in medium blue wash. Timeless design with button front and chest pockets.",
+            "category": "mens-clothing",
+            "image": "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=500",
+            "rating": {
+                "rate": 4.8,
+                "count": 142
+            }
+        },
+        {
+            "id": 7,
+            "title": "Khaki Chino Pants",
+            "price": 1699,
+            "description": "Smart-casual khaki chinos with modern slim fit. Versatile pants perfect for office or weekend wear.",
+            "category": "mens-clothing",
+            "image": "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=500",
+            "rating": {
+                "rate": 4.4,
+                "count": 88
+            }
+        },
+        {
+            "id": 8,
+            "title": "Black Leather Jacket",
+            "price": 4999,
+            "description": "Premium faux leather moto jacket in classic black. Edgy style with asymmetric zipper and multiple pockets.",
+            "category": "mens-clothing",
+            "image": "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=500",
+            "rating": {
+                "rate": 4.9,
+                "count": 156
+            }
+        },
+        {
+            "id": 9,
+            "title": "Light Blue Jeans",
+            "price": 1799,
+            "description": "Relaxed fit jeans in light wash denim. Comfortable and casual with classic 5-pocket styling.",
+            "category": "mens-clothing",
+            "image": "https://images.unsplash.com/photo-1602293589930-45aad59ba3ab?w=500",
+            "rating": {
+                "rate": 4.3,
+                "count": 92
+            }
+        },
+        {
+            "id": 10,
+            "title": "Striped Cotton T-Shirt",
+            "price": 899,
+            "description": "Classic striped tee in navy and white. Soft cotton jersey with comfortable regular fit.",
+            "category": "mens-clothing",
+            "image": "https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=500",
+            "rating": {
+                "rate": 4.5,
+                "count": 105
+            }
+        },
+        {
+            "id": 11,
+            "title": "Black Joggers",
+            "price": 1399,
+            "description": "Comfortable athletic joggers in black. Elastic waistband with drawstring and tapered legs with cuffs.",
+            "category": "mens-clothing",
+            "image": "https://images.unsplash.com/photo-1552902865-b72c031ac5ea?w=500",
+            "rating": {
+                "rate": 4.6,
+                "count": 118
+            }
+        },
+        {
+            "id": 12,
+            "title": "White Button-Down Shirt",
+            "price": 1499,
+            "description": "Crisp white oxford shirt perfect for formal or smart-casual looks. Classic fit with button-down collar.",
+            "category": "mens-clothing",
+            "image": "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=500",
+            "rating": {
+                "rate": 4.7,
+                "count": 134
+            }
+        },
+        {
+            "id": 13,
+            "title": "Olive Green Cargo Pants",
+            "price": 1899,
+            "description": "Utility-style cargo pants in olive green. Multiple pockets and durable fabric for outdoor activities.",
+            "category": "mens-clothing",
+            "image": "https://images.unsplash.com/photo-1473966968600-fa801b869a1a?w=500",
+            "rating": {
+                "rate": 4.4,
+                "count": 76
+            }
+        },
+        {
+            "id": 14,
+            "title": "Beach Print Hawaiian Shirt",
+            "price": 1199,
+            "description": "Vibrant tropical print shirt perfect for beach parties and summer events. Lightweight and breathable fabric.",
+            "category": "mens-clothing",
+            "image": "https://images.unsplash.com/photo-1622470953794-aa9c70b0fb9d?w=500",
+            "rating": {
+                "rate": 4.2,
+                "count": 58
+            }
+        },
+        {
+            "id": 15,
+            "title": "Navy Blue Swim Shorts",
+            "price": 899,
+            "description": "Quick-dry swim shorts in navy blue. Elastic waistband with mesh lining, perfect for beach and pool.",
+            "category": "mens-clothing",
+            "image": "https://images.unsplash.com/photo-1591195853828-11db59a44f6b?w=500",
+            "rating": {
+                "rate": 4.5,
+                "count": 89
+            }
+        },
+        {
+            "id": 16,
+            "title": "Burgundy Hoodie",
+            "price": 1799,
+            "description": "Cozy pullover hoodie in rich burgundy color. Soft fleece interior with kangaroo pocket and drawstring hood.",
+            "category": "mens-clothing",
+            "image": "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=500",
+            "rating": {
+                "rate": 4.6,
+                "count": 102
+            }
+        },
+        {
+            "id": 17,
+            "title": "Grey Dress Pants",
+            "price": 2199,
+            "description": "Formal dress pants in charcoal grey. Tailored fit with pressed creases, perfect for business attire.",
+            "category": "mens-clothing",
+            "rating": {
+                "rate": 4.7,
+                "count": 94
+            },
+            "image": "https://images.unsplash.com/photo-1594938291221-94f18cbb5660?w=500"
+        },
+        {
+            "id": 18,
+            "title": "Red Plaid Flannel Shirt",
+            "price": 1399,
+            "description": "Classic red and black plaid flannel shirt. Soft brushed cotton perfect for layering in cooler weather.",
+            "category": "mens-clothing",
+            "image": "https://images.unsplash.com/photo-1602810316498-ab67cf68c8e1?w=500",
+            "rating": {
+                "rate": 4.5,
+                "count": 87
+            }
+        },
+        {
+            "id": 19,
+            "title": "Black Athletic Shorts",
+            "price": 799,
+            "description": "Performance athletic shorts with moisture-wicking fabric. Perfect for gym workouts and running.",
+            "category": "mens-clothing",
+            "image": "https://images.unsplash.com/photo-1591195853828-11db59a44f6b?w=500",
+            "rating": {
+                "rate": 4.4,
+                "count": 112
+            }
+        },
+        {
+            "id": 20,
+            "title": "Cream Knit Sweater",
+            "price": 2299,
+            "description": "Chunky knit sweater in warm cream color. Cozy cable-knit design perfect for winter layering.",
+            "category": "mens-clothing",
+            "image": "https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77?w=500",
+            "rating": {
+                "rate": 4.8,
+                "count": 125
+            }
+        }
+    ]
+}

@@ -119,7 +119,7 @@ class GeneratedOutfit(BaseModel):
     """Complete generated outfit with try-on image"""
     outfit_id: str = Field(..., description="Unique outfit ID")
     combination: OutfitCombination
-    tryon_image_url: HttpUrl = Field(..., description="Generated try-on image URL")
+    tryon_image_url: str = Field(..., description="Generated try-on image URL or data URL")
     prompt: str = Field(..., description="Original user prompt")
     generated_at: datetime = Field(default_factory=datetime.utcnow)
     

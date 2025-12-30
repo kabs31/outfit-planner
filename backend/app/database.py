@@ -160,10 +160,14 @@ def get_db():
 def init_db():
     """Initialize database tables"""
     try:
-        # Enable pgvector extension
-        with engine.connect() as conn:
-            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-            conn.commit()
+        # Enable pgvector extension (only for PostgreSQL)
+        if "postgresql" in settings.DATABASE_URL.lower():
+            with engine.connect() as conn:
+                conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+                conn.commit()
+            logger.info("✅ PostgreSQL vector extension enabled")
+        else:
+            logger.info("ℹ️  Using SQLite - skipping vector extension")
         
         # Create all tables
         Base.metadata.create_all(bind=engine)
