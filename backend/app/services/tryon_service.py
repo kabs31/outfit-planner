@@ -1,6 +1,6 @@
 """
 Virtual Try-On Service - IDM-VTON Integration
-Generates photo-realistic images of models wearing outfits using RunPod GPU
+Supports 3 modes: RunPod (production), Local GPU (development), Simple Fallback
 """
 import httpx
 import base64
@@ -33,6 +33,20 @@ class VirtualTryOnService:
         self.runpod_api_key = settings.RUNPOD_API_KEY
         self.endpoint_id = settings.RUNPOD_ENDPOINT_ID
         self.base_url = f"https://api.runpod.ai/v2/{self.endpoint_id}"
+        
+        # Initialize local VTON service if enabled (lazy loaded)
+        self.local_vton = None
+        if settings.USE_LOCAL_VTON:
+            try:
+                from app.services.local_vton_service import get_local_vton
+                self.local_vton = get_local_vton()
+                if self.local_vton and self.local_vton.is_loaded:
+                    logger.info("✅ Local IDM-VTON GPU service initialized")
+                else:
+                    logger.warning("⚠️  Local VTON failed to initialize, will use fallback")
+            except Exception as e:
+                logger.error(f"Failed to load local VTON: {e}")
+                logger.info("Will use simple composite fallback")
     
     # ==================== IMAGE PROCESSING ====================
     
@@ -131,7 +145,8 @@ class VirtualTryOnService:
                 "Content-Type": "application/json"
             }
             
-            async with httpx.AsyncClient(timeout=120.0) as client:
+            # Increased timeout for cold starts (3 minutes)
+            async with httpx.AsyncClient(timeout=180.0) as client:
                 # Submit job
                 logger.info("Submitting try-on job to RunPod...")
                 response = await client.post(
@@ -150,7 +165,7 @@ class VirtualTryOnService:
                 logger.info(f"Job submitted: {job_id}")
                 
                 # Poll for results
-                max_attempts = 60  # 60 attempts = 2 minutes max
+                max_attempts = 150  # 150 attempts * 2s = 5 minutes max
                 for attempt in range(max_attempts):
                     await asyncio.sleep(2)  # Wait 2 seconds between polls
                     
@@ -187,7 +202,50 @@ class VirtualTryOnService:
             logger.error(f"❌ RunPod try-on generation failed: {e}")
             return None
     
-    # ==================== LOCAL DEVELOPMENT FALLBACK ====================
+    # ==================== LOCAL GPU AI ====================
+    
+    async def generate_tryon_image_local_gpu(
+        self,
+        model_image: Image.Image,
+        garment_image: Image.Image
+    ) -> Optional[Image.Image]:
+        """
+        LOCAL GPU: Use local IDM-VTON model (8GB VRAM)
+        Real AI virtual try-on running on your RTX 4060
+        """
+        if not self.local_vton or not self.local_vton.is_loaded:
+            logger.warning("Local VTON not available, using simple fallback")
+            return await self.generate_tryon_image_local(model_image, garment_image)
+        
+        try:
+            logger.info("🎨 Generating with local GPU (IDM-VTON)...")
+            
+            # Generate using local VTON (blocking operation)
+            # Run in thread pool to avoid blocking async event loop
+            import functools
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None,
+                functools.partial(
+                    self.local_vton.generate,
+                    model_image=model_image,
+                    garment_image=garment_image
+                )
+            )
+            
+            if result:
+                logger.info("✅ Local GPU generation successful!")
+                return result
+            else:
+                logger.warning("Local GPU generation failed, trying simple fallback")
+                return await self.generate_tryon_image_local(model_image, garment_image)
+                
+        except Exception as e:
+            logger.error(f"Local GPU generation error: {e}")
+            logger.info("Falling back to simple composite")
+            return await self.generate_tryon_image_local(model_image, garment_image)
+    
+    # ==================== SIMPLE FALLBACK ====================
     
     async def generate_tryon_image_local(
         self,
@@ -195,13 +253,11 @@ class VirtualTryOnService:
         garment_image: Image.Image
     ) -> Optional[Image.Image]:
         """
-        LOCAL DEVELOPMENT: Simple image compositing for testing
-        This is NOT real virtual try-on, just for development without GPU
-        
-        In production, this should never be used - use RunPod instead
+        SIMPLE FALLBACK: Basic image compositing (no AI)
+        This is NOT real virtual try-on, just for when nothing else works
         """
         try:
-            logger.warning("⚠️  Using LOCAL fallback - not real virtual try-on!")
+            logger.warning("⚠️  Using SIMPLE fallback - not AI, just side-by-side!")
             
             # Simple side-by-side composition
             width = 512
@@ -217,7 +273,7 @@ class VirtualTryOnService:
             return result
             
         except Exception as e:
-            logger.error(f"Local fallback failed: {e}")
+            logger.error(f"Simple fallback failed: {e}")
             return None
     
     # ==================== MAIN GENERATION FUNCTION ====================
@@ -250,37 +306,58 @@ class VirtualTryOnService:
             # Combine product images
             combined_garment = self.combine_product_images(top_image, bottom_image)
             
-            # Generate try-on image
-            if use_local or not settings.RUNPOD_API_KEY:
-                # Local development fallback
-                logger.warning("Using local fallback (not real virtual try-on)")
+            # Generate try-on image with 3-tier fallback system:
+            # 1. RunPod (if configured)
+            # 2. Local GPU (if USE_LOCAL_VTON=true)
+            # 3. Simple fallback (always works)
+            
+            model_image = await self.download_image(settings.MODEL_IMAGE_URL)
+            result_image = None
+            upload_data = None
+            
+            # Try RunPod first (production)
+            if settings.RUNPOD_API_KEY and not use_local:
+                logger.info("🚀 Attempting RunPod generation...")
+                result_base64 = await self.generate_tryon_image_runpod(
+                    model_image_url=settings.MODEL_IMAGE_URL,
+                    garment_image=combined_garment,
+                    category="upper_body"
+                )
                 
-                # Get model image
-                model_image = await self.download_image(settings.MODEL_IMAGE_URL)
+                if result_base64:
+                    upload_data = f"data:image/png;base64,{result_base64}"
+                    logger.info("✅ RunPod generation successful")
+                else:
+                    logger.warning("RunPod failed, trying local GPU...")
+            
+            # Try Local GPU if RunPod failed or not configured
+            if not upload_data and settings.USE_LOCAL_VTON:
+                logger.info("🎮 Attempting local GPU generation...")
+                result_image = await self.generate_tryon_image_local_gpu(
+                    model_image,
+                    combined_garment
+                )
+                
+                if result_image:
+                    result_base64 = self.image_to_base64(result_image)
+                    upload_data = f"data:image/png;base64,{result_base64}"
+                    logger.info("✅ Local GPU generation successful")
+                else:
+                    logger.warning("Local GPU failed, using simple fallback...")
+            
+            # Final fallback: Simple composite (always works)
+            if not upload_data:
+                logger.info("📦 Using simple composite fallback...")
                 result_image = await self.generate_tryon_image_local(
-                    model_image, 
+                    model_image,
                     combined_garment
                 )
                 
                 if not result_image:
+                    logger.error("❌ All generation methods failed!")
                     return None
                 
-                # Convert to base64 for upload
                 result_base64 = self.image_to_base64(result_image)
-                upload_data = f"data:image/png;base64,{result_base64}"
-                
-            else:
-                # Production: Use RunPod
-                logger.info("Generating with RunPod IDM-VTON...")
-                result_base64 = await self.generate_tryon_image_runpod(
-                    model_image_url=settings.MODEL_IMAGE_URL,
-                    garment_image=combined_garment,
-                    category="upper_body"  # Can be made dynamic
-                )
-                
-                if not result_base64:
-                    return None
-                
                 upload_data = f"data:image/png;base64,{result_base64}"
             
             # Skip Cloudinary upload - return base64 data URL directly

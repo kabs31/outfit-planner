@@ -81,6 +81,13 @@ class Settings(BaseSettings):
     # Model Base Image (for virtual try-on)
     MODEL_IMAGE_URL: str = "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=512"  # Working Unsplash image
     
+    # Local IDM-VTON Settings (for local GPU)
+    USE_LOCAL_VTON: bool = False  # Enable local GPU-based virtual try-on
+    LOCAL_VTON_STEPS: int = 20  # Inference steps (20-30 recommended for 8GB VRAM)
+    LOCAL_VTON_WIDTH: int = 512  # Lower resolution = faster, less VRAM
+    LOCAL_VTON_HEIGHT: int = 768
+    LOCAL_VTON_GUIDANCE: float = 2.0  # Guidance scale (1.5-3.0)
+    
     class Config:
         env_file = ".env"
         case_sensitive = True
