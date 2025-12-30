@@ -6,7 +6,7 @@ start "Ollama" cmd /k ollama serve
 timeout /t 3 /nobreak > nul
 
 echo Starting Backend...
-start "Backend" cmd /k "cd backend && venv\Scripts\activate && uvicorn app.main:app --reload"
+start "Backend" cmd /k "cd backend && venv\Scripts\activate && uvicorn app.main:app --host 0.0.0.0 --port 8001"
 timeout /t 5 /nobreak > nul
 
 echo Starting Frontend...
