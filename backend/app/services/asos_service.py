@@ -126,20 +126,41 @@ class ASOSService:
         return await self.search_products(search_query, category="dress", limit=limit)
     
     def _filter_by_gender(self, products: List[Dict], gender: str) -> List[Dict]:
-        """Filter out products that don't match the specified gender"""
-        # Keywords that indicate wrong gender
+        """Filter out products that don't match the specified gender - strict filtering"""
         if gender == "men":
-            exclude_keywords = ["women", "woman", "womens", "ladies", "girl", "dress", "skirt", "blouse", "bra", "lingerie", "maternity"]
+            # For men's products, exclude women/ladies/girls/dresses/skirts
+            exclude_keywords = [
+                "women", "woman", "womens", "ladies", "girl", "girls",
+                "dress", "dresses", "skirt", "skirts", "blouse", "bra", 
+                "lingerie", "maternity", "female", "feminine"
+            ]
+            # Must include men keywords (strict requirement)
+            include_keywords = ["men", "mens", "man", "male", "gentleman"]
         else:
-            exclude_keywords = ["men", "mans", "mens", "boy", "male"]
+            # For women's products, exclude men/boys
+            exclude_keywords = ["men", "mans", "mens", "boy", "boys", "male", "gentleman"]
+            include_keywords = []  # No strict requirement for women
         
         filtered = []
         for product in products:
             name = product.get("name", "").lower()
-            # Check if any exclude keyword is in the product name
-            should_exclude = any(keyword in name for keyword in exclude_keywords)
-            if not should_exclude:
-                filtered.append(product)
+            description = (product.get("description", "") or "").lower()
+            full_text = name + " " + description
+            
+            # Check if it has excluded keywords
+            has_excluded = any(keyword in full_text for keyword in exclude_keywords)
+            
+            # For men, require men keywords (strict)
+            if gender == "men":
+                has_men_keyword = any(keyword in full_text for keyword in include_keywords)
+                if has_excluded or not has_men_keyword:
+                    continue
+            else:
+                # For women, just exclude men products
+                if has_excluded:
+                    continue
+            
+            filtered.append(product)
         
         return filtered
     
