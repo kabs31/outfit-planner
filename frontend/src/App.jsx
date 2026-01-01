@@ -320,6 +320,75 @@ function App() {
                 finds perfect outfits across multiple stores, and lets you see how they look on you 
                 before you buy.
               </p>
+
+              {/* Pain Points Section */}
+              <div className="pain-points-section">
+                <h3 className="pain-points-title">Are you tired of...</h3>
+                <div className="pain-points-grid">
+                  <motion.div 
+                    className="pain-point-item"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.2 }}
+                  >
+                    <span className="pain-icon">😫</span>
+                    <p><strong>Tired of thinking yourself</strong> whether the outfit combination will work out on you?</p>
+                  </motion.div>
+                  
+                  <motion.div 
+                    className="pain-point-item"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.3 }}
+                  >
+                    <span className="pain-icon">😤</span>
+                    <p><strong>Tired of finding out outfits</strong> based on your mood and vibe, place?</p>
+                  </motion.div>
+                  
+                  <motion.div 
+                    className="pain-point-item"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.4 }}
+                  >
+                    <span className="pain-icon">😵</span>
+                    <p><strong>Tired of scrolling big catalogs</strong> across different stores?</p>
+                  </motion.div>
+                  
+                  <motion.div 
+                    className="pain-point-item"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.5 }}
+                  >
+                    <span className="pain-icon">😓</span>
+                    <p><strong>Tired of buying clothes</strong> that don't fit or look good on you?</p>
+                  </motion.div>
+                  
+                  <motion.div 
+                    className="pain-point-item"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.6 }}
+                  >
+                    <span className="pain-icon">😩</span>
+                    <p><strong>Tired of wasting time</strong> searching for the perfect outfit combination?</p>
+                  </motion.div>
+                  
+                  <motion.div 
+                    className="pain-point-item"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.7 }}
+                  >
+                    <span className="pain-icon">😔</span>
+                    <p><strong>Tired of not knowing</strong> how different pieces will look together?</p>
+                  </motion.div>
+                </div>
+                <div className="pain-points-cta">
+                  <p className="cta-text">✨ <strong>We've got you covered!</strong> ✨</p>
+                </div>
+              </div>
               
               <div className="intro-highlights">
                 <div className="intro-highlight-item">
