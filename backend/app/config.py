@@ -33,14 +33,8 @@ class Settings(BaseSettings):
     # RapidAPI (ASOS Products)
     RAPIDAPI_KEY: str = ""
     
-    # CORS Origins
-    CORS_ORIGINS: list = [
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://localhost:5175",
-        "https://your-app.vercel.app"  # Update for production
-    ]
+    # CORS Origins (comma-separated string, or leave empty for defaults)
+    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost:5175"
     
     # Rate Limiting
     RATE_LIMIT_PER_MINUTE: int = 10
@@ -68,5 +62,14 @@ settings = Settings()
 
 
 def get_cors_origins() -> list:
-    """Get CORS origins"""
-    return settings.CORS_ORIGINS
+    """Get CORS origins as a list"""
+    if not settings.CORS_ORIGINS:
+        # Default origins if not set
+        return [
+            "http://localhost:3000",
+            "http://localhost:5173",
+            "http://localhost:5174",
+            "http://localhost:5175",
+        ]
+    # Parse comma-separated string
+    return [origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()]
