@@ -554,29 +554,34 @@ function App() {
                         </div>
                         
                         {/* Virtual Try-On Button */}
-                        <button
-                          className="tryon-btn"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleGenerateTryOn(
-                              outfit.outfit_id,
-                              outfit.combination.top.image_url,
-                              outfit.combination.bottom.image_url
-                            )
-                          }}
-                          disabled={tryonLoading[outfit.outfit_id] || !canTryOn}
-                        >
-                          {tryonLoading[outfit.outfit_id] ? (
-                            <>
-                              <div className="spinner-small"></div>
-                              Generating...
-                            </>
-                          ) : !canTryOn ? (
-                            '🔒 Try-on used'
-                          ) : (
-                            '👗 Try On'
+                        <div className="tryon-button-wrapper">
+                          <button
+                            className="tryon-btn"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleGenerateTryOn(
+                                outfit.outfit_id,
+                                outfit.combination.top.image_url,
+                                outfit.combination.bottom.image_url
+                              )
+                            }}
+                            disabled={tryonLoading[outfit.outfit_id] || !canTryOn}
+                          >
+                            {tryonLoading[outfit.outfit_id] ? (
+                              <>
+                                <div className="spinner-small"></div>
+                                Generating...
+                              </>
+                            ) : !canTryOn ? (
+                              '🔒 Try-on used'
+                            ) : (
+                              '👗 Try On'
+                            )}
+                          </button>
+                          {canTryOn && !tryonLoading[outfit.outfit_id] && (
+                            <p className="tryon-warning">⏱️ Takes ~2 mins • Only 1 try-on available</p>
                           )}
-                        </button>
+                        </div>
                       </div>
                     )}
 
@@ -654,24 +659,29 @@ function App() {
 
               {/* Try-On Button in Reveal Modal */}
               {canTryOn && !revealedOutfit.tryon_image_url && (
-                <button
-                  className="reveal-tryon-btn"
-                  onClick={() => handleGenerateTryOn(
-                    revealedOutfit.outfit_id,
-                    revealedOutfit.combination.top.image_url,
-                    revealedOutfit.combination.bottom.image_url
+                <div className="reveal-tryon-wrapper">
+                  <button
+                    className="reveal-tryon-btn"
+                    onClick={() => handleGenerateTryOn(
+                      revealedOutfit.outfit_id,
+                      revealedOutfit.combination.top.image_url,
+                      revealedOutfit.combination.bottom.image_url
+                    )}
+                    disabled={tryonLoading[revealedOutfit.outfit_id]}
+                  >
+                    {tryonLoading[revealedOutfit.outfit_id] ? (
+                      <>
+                        <div className="spinner-small"></div>
+                        Generating Try-On (~2 mins)...
+                      </>
+                    ) : (
+                      '👗 Virtual Try-On'
+                    )}
+                  </button>
+                  {!tryonLoading[revealedOutfit.outfit_id] && (
+                    <p className="tryon-warning-modal">⏱️ Takes ~2 minutes • Only 1 try-on available per user</p>
                   )}
-                  disabled={tryonLoading[revealedOutfit.outfit_id]}
-                >
-                  {tryonLoading[revealedOutfit.outfit_id] ? (
-                    <>
-                      <div className="spinner-small"></div>
-                      Generating Try-On (~30s)...
-                    </>
-                  ) : (
-                    '👗 Virtual Try-On'
-                  )}
-                </button>
+                </div>
               )}
 
               {/* Show Try-On Result if available */}
@@ -741,10 +751,6 @@ function App() {
         )}
       </AnimatePresence>
 
-      {/* Footer */}
-      <footer className="footer">
-        <p>Made with ❤️ using AI</p>
-      </footer>
     </div>
   )
 }

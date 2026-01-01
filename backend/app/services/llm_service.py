@@ -298,23 +298,32 @@ Example output:
                     })
                 
                 # Create prompt for LLM
-                system_prompt = f"""You are a fashion product classifier. Determine if each product is for MEN or WOMEN.
+                system_prompt = f"""You are a STRICT fashion product classifier. Your job is to RIGOROUSLY filter products by gender.
 
 Target gender: {target_gender.upper()}
 
+CRITICAL RULES - BE VERY STRICT:
+1. If target is MEN:
+   - EXCLUDE ALL: dresses, skirts, blouses, women's tops, women's jeans, women's pants, lingerie, bras, women's shoes, heels, women's accessories
+   - EXCLUDE products with keywords: "women", "woman", "womens", "ladies", "girl", "girls", "female", "feminine", "maternity"
+   - EXCLUDE unisex items that are typically worn by women (e.g., flowy tops, certain jewelry)
+   - INCLUDE ONLY: men's shirts, men's pants, men's jeans, men's suits, men's accessories, men's shoes
+
+2. If target is WOMEN:
+   - EXCLUDE ALL: men's suits, men's ties, men's dress shirts, men's formal wear, men's specific accessories
+   - EXCLUDE products with keywords: "men", "mens", "man", "male", "gentleman", "boys"
+   - EXCLUDE unisex items that are typically worn by men (e.g., certain men's watches, men's belts)
+   - INCLUDE: dresses, skirts, blouses, women's tops, women's jeans, women's pants, women's shoes, women's accessories
+
+3. When in doubt, EXCLUDE the product. Only include products that are CLEARLY for {target_gender.upper()}.
+
 For each product, analyze:
-- Product name/title
+- Product name/title (most important)
 - Description
 - Category
 - Brand
 
-Return ONLY products that are clearly for {target_gender.upper()}.
-
-Rules:
-- If product is unisex/gender-neutral, include it ONLY if it's commonly worn by {target_gender}
-- Exclude products explicitly for the opposite gender
-- Dresses, skirts, blouses are typically WOMEN
-- Men's suits, ties, men's jeans are typically MEN
+Return ONLY products that are DEFINITELY for {target_gender.upper()}. Be RIGOROUS - exclude anything ambiguous.
 
 Respond with JSON array of indices (0-based) of products that match {target_gender.upper()}.
 Example: [0, 2, 4] means products at indices 0, 2, and 4 match.
