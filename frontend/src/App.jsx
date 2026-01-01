@@ -246,7 +246,7 @@ function App() {
       <div className="app">
         <div className="login-screen">
           <div className="login-card">
-            <h1>✨ AI Outfit Recommender</h1>
+            <h1>✨ FashionGenie</h1>
             <p className="login-subtitle">Discover your perfect style with AI</p>
             
             <div className="login-features">
@@ -284,7 +284,7 @@ function App() {
     <div className="app">
       {/* Header */}
       <header className="header">
-        <h1>✨ AI Outfit Recommender</h1>
+        <h1>✨ FashionGenie</h1>
         <p className="subtitle">Swipe right on outfits you love to see prices & buy!</p>
         
         {/* User info & usage */}
@@ -313,7 +313,7 @@ function App() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
             >
-              <h2 className="intro-title">Welcome to AI Outfit Recommender</h2>
+              <h2 className="intro-title">Welcome to FashionGenie</h2>
               <p className="intro-description">
                 The next-generation fashion shopping experience powered by artificial intelligence. 
                 Say goodbye to endless scrolling and guesswork. Our AI understands your style, 
