@@ -1,4 +1,4 @@
-# Python
+# ==================== Python ====================
 __pycache__/
 *.py[cod]
 *$py.class
@@ -16,8 +16,6 @@ parts/
 sdist/
 var/
 wheels/
-pip-wheel-metadata/
-share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
@@ -25,98 +23,98 @@ MANIFEST
 
 # Virtual Environment
 venv/
-env/
 ENV/
-env.bak/
-venv.bak/
+env/
+.venv/
 
-# IDEs
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-.DS_Store
-
-# Environment variables
-.env
-.env.local
-.env.*.local
-
-# Node.js / Frontend
+# ==================== Node.js ====================
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
 
-# Frontend build output
+# Build output
 frontend/dist/
-frontend/dist-ssr/
-frontend/.vite/
-frontend/.cache/
+frontend/build/
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+# ==================== Environment ====================
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+*.env
 
-# OS
+# ==================== IDE ====================
+.idea/
+.vscode/
+*.swp
+*.swo
+*.sublime-workspace
+*.sublime-project
+
+# ==================== OS ====================
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 
-# Database
+# ==================== Database ====================
 *.db
-*.sqlite
 *.sqlite3
-database/*.db
-!database/.gitkeep
+*.sqlite
 
-# Logs
+# ==================== Logs ====================
 *.log
 logs/
-*.log.*
 
-# Testing
+# ==================== Testing ====================
+.pytest_cache/
 .coverage
 htmlcov/
-.pytest_cache/
 .tox/
+.nox/
+coverage.xml
+*.cover
+*.py,cover
 .hypothesis/
 
-# Jupyter Notebook
-.ipynb_checkpoints
+# ==================== Project Specific ====================
+# Uploads
+backend/uploads/
+uploads/
 
-# pyenv
-.python-version
+# Test files
+backend/test_*.py
+test_*.py
 
-# Celery
-celerybeat-schedule
-celerybeat.pid
+# Test images (keep frontend assets)
+*.png
+*.jpg
+*.jpeg
+!frontend/public/**/*.png
+!frontend/public/**/*.jpg
+!frontend/src/**/*.png
+!frontend/src/**/*.jpg
 
-# SageMath parsed files
-*.sage.py
+# Local databases
+*.db
+*.sqlite
 
-# Spyder project settings
-.spyderproject
-.spyproject
+# Docker volumes
+postgres_data/
+redis_data/
 
-# Rope project settings
-.ropeproject
+# Playwright
+playwright-report/
 
-# mkdocs documentation
-/site
+# Temp files
+*.tmp
+*.bak
 
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# Pyre type checker
-.pyre/
+# Firebase service account (never commit!)
+*serviceAccountKey*.json
+firebase-adminsdk*.json

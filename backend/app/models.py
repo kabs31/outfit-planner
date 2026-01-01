@@ -46,6 +46,7 @@ class OutfitPromptRequest(BaseModel):
     max_price: Optional[float] = Field(None, ge=0, description="Maximum price filter")
     preferred_brands: Optional[List[str]] = Field(None, description="List of preferred brands")
     exclude_categories: Optional[List[ClothingCategory]] = Field(None, description="Categories to exclude")
+    gender: Optional[str] = Field("women", description="Gender filter: 'men' or 'women'")
     
     class Config:
         json_schema_extra = {
@@ -119,7 +120,7 @@ class GeneratedOutfit(BaseModel):
     """Complete generated outfit with try-on image"""
     outfit_id: str = Field(..., description="Unique outfit ID")
     combination: OutfitCombination
-    tryon_image_url: str = Field(..., description="Generated try-on image URL or data URL")
+    tryon_image_url: Optional[str] = Field(None, description="Generated try-on image URL or data URL (None if not yet generated)")
     prompt: str = Field(..., description="Original user prompt")
     generated_at: datetime = Field(default_factory=datetime.utcnow)
     

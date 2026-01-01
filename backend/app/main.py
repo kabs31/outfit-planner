@@ -1,39 +1,57 @@
 """
-Main FastAPI Application for AI Outfit Recommender
-Complete API with all endpoints
+AI Outfit Recommender - FastAPI Application
+Simplified version without PostgreSQL database
 """
-from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks
+from fastapi import FastAPI, HTTPException, Request, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from sqlalchemy.orm import Session
+from pydantic import BaseModel
+from typing import List, Optional
 import time
 import uuid
 from datetime import datetime
 import logging
-from typing import List
+import io
 
-from app.config import settings, get_cors_origins, validate_settings
-from app.database import (
-    get_db, 
-    init_db, 
-    check_db_connection, 
-    Product, 
-    GeneratedOutfit as DBOutfit, 
-    UserFeedback as DBFeedback, 
-    SearchQuery as DBSearchQuery,
-    SessionLocal  # 🆕 Added
-)
+# Rate Limiting
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
+# Cloudinary
+import cloudinary
+import cloudinary.uploader
+
+# App imports
+from app.config import settings, get_cors_origins
 from app.models import (
     OutfitPromptRequest,
     OutfitResponse,
     GeneratedOutfit,
-    UserFeedbackRequest,
     HealthCheck,
-    ErrorResponse,
+    ProductItem,
 )
-from app.services.llama_service import llama_service
+from app.services.llm_service import llm_service
 from app.services.product_service import product_service
 from app.services.tryon_service import tryon_service
+from app.services.asos_service import asos_service
+from app.services.amazon_service import amazon_service
+from app.services.firebase_auth import verify_firebase_token, get_user_id_from_token
+from app.services.usage_tracker import get_user_usage, increment_search, increment_tryon, get_admin_stats, get_global_usage
+
+# Sentry Error Monitoring (optional)
+import sentry_sdk
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+
+if settings.SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=settings.SENTRY_DSN,
+        environment=settings.SENTRY_ENVIRONMENT,
+        traces_sample_rate=settings.SENTRY_TRACES_SAMPLE_RATE,
+        integrations=[FastApiIntegration(transaction_style="endpoint")],
+        debug=settings.DEBUG,
+        send_default_pii=False,
+    )
 
 # Configure logging
 logging.basicConfig(
@@ -41,6 +59,13 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# Configure Cloudinary
+cloudinary.config(
+    cloud_name=settings.CLOUDINARY_CLOUD_NAME,
+    api_key=settings.CLOUDINARY_API_KEY,
+    api_secret=settings.CLOUDINARY_API_SECRET
+)
 
 # Create FastAPI app
 app = FastAPI(
@@ -50,6 +75,11 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc"
 )
+
+# Rate Limiter
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS middleware
 app.add_middleware(
@@ -61,7 +91,7 @@ app.add_middleware(
 )
 
 
-# ==================== STARTUP/SHUTDOWN ====================
+# ==================== STARTUP ====================
 
 @app.on_event("startup")
 async def startup_event():
@@ -69,43 +99,11 @@ async def startup_event():
     logger.info("=" * 60)
     logger.info(f"🚀 Starting {settings.APP_NAME} v{settings.APP_VERSION}")
     logger.info("=" * 60)
-    
-    # Validate configuration
-    validate_settings()
-    
-    # Initialize database
-    try:
-        init_db()
-        if check_db_connection():
-            logger.info("✅ Database connected")
-            
-            # 🆕 AUTO-SYNC PRODUCTS IF DATABASE IS EMPTY
-            db = SessionLocal()
-            try:
-                product_count = db.query(Product).filter(Product.is_active == True).count()
-                logger.info(f"📦 Products in database: {product_count}")
-                
-                if product_count == 0:
-                    logger.info("🔄 Database empty. Auto-syncing products from API...")
-                    try:
-                        sync_count = await product_service.sync_products_to_db(db)
-                        logger.info(f"✅ Auto-synced {sync_count} products successfully!")
-                    except Exception as sync_error:
-                        logger.error(f"❌ Auto-sync failed: {sync_error}")
-                        logger.info("💡 You can manually sync later: POST /api/v1/products/sync")
-                else:
-                    logger.info("✅ Products already present in database")
-            finally:
-                db.close()
-        else:
-            logger.warning("⚠️  Database connection failed")
-    except Exception as e:
-        logger.error(f"❌ Database initialization failed: {e}")
-    
-    # Check services
-    llama_health = llama_service.health_check()
-    logger.info(f"Llama service: {llama_health['status']}")
-    
+    logger.info(f"LLM service: configured={llm_service.is_configured}")
+    logger.info(f"ASOS API: {'configured' if settings.RAPIDAPI_KEY else 'not configured'}")
+    logger.info(f"Amazon API: {'configured' if settings.RAPIDAPI_KEY else 'not configured'}")
+    logger.info(f"Cloudinary: {'configured' if settings.CLOUDINARY_CLOUD_NAME else 'not configured'}")
+    logger.info(f"Replicate: {'configured' if settings.REPLICATE_API_TOKEN else 'not configured'}")
     logger.info("=" * 60)
     logger.info("✅ Application startup complete")
     logger.info("=" * 60)
@@ -113,7 +111,6 @@ async def startup_event():
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    """Cleanup on shutdown"""
     logger.info("👋 Shutting down application...")
 
 
@@ -124,21 +121,15 @@ async def health_check():
     """Check system health"""
     services = {}
     
-    # Check database
-    if check_db_connection():
-        services["database"] = "connected"
-    else:
-        services["database"] = "disconnected"
+    # Check LLM (Groq)
+    llm_health = await llm_service.health_check()
+    services["llm"] = llm_health.get("status", "unknown")
     
-    # Check Llama
-    llama_health = llama_service.health_check()
-    services["llama"] = llama_health["status"]
-    
-    # Check RunPod (optional)
-    if settings.RUNPOD_API_KEY:
-        services["runpod"] = "configured"
-    else:
-        services["runpod"] = "not_configured"
+    # Check APIs
+    services["asos"] = "configured" if settings.RAPIDAPI_KEY else "not_configured"
+    services["amazon"] = "configured" if settings.RAPIDAPI_KEY else "not_configured"
+    services["cloudinary"] = "configured" if settings.CLOUDINARY_CLOUD_NAME else "not_configured"
+    services["replicate"] = "configured" if settings.REPLICATE_API_TOKEN else "not_configured"
     
     return HealthCheck(
         status="healthy",
@@ -148,320 +139,663 @@ async def health_check():
     )
 
 
-# ==================== OUTFIT GENERATION ====================
+# ==================== HELPER: GET FIREBASE USER ====================
+
+async def get_firebase_user(request: Request) -> Optional[str]:
+    """Get Firebase user ID from Authorization header"""
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return None
+    
+    token = auth_header.split(" ")[1]
+    
+    try:
+        payload = await verify_firebase_token(token)
+        if payload:
+            return get_user_id_from_token(payload)
+    except Exception as e:
+        logger.warning(f"Firebase token verification failed: {e}")
+    
+    return None
+
+
+# ==================== BROWSE OUTFITS (ASOS) ====================
 
 @app.post(
-    f"{settings.API_PREFIX}/outfits/generate",
+    f"{settings.API_PREFIX}/outfits/browse-asos",
     response_model=OutfitResponse,
     tags=["Outfits"],
-    summary="Generate outfit recommendations from prompt"
+    summary="Browse outfits from ASOS"
 )
-async def generate_outfits(
-    request: OutfitPromptRequest,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
-    use_local: bool = False  # For development testing
-):
+@limiter.limit("20/minute")
+async def browse_outfits_asos(request: Request, prompt_request: OutfitPromptRequest):
     """
-    Generate AI-powered outfit recommendations
+    Browse outfit combinations from ASOS
     
-    - **prompt**: Natural language description (e.g., "Beach party, colorful relaxed")
-    - **max_price**: Optional maximum total price filter
-    - **preferred_brands**: Optional list of preferred brands
-    - **exclude_categories**: Optional categories to exclude
-    
-    Returns list of outfit combinations with virtual try-on images.
+    - Requires Google sign-in
+    - Limited to 2 searches per 5 days
+    - Returns 3 outfit combinations per search
     """
     start_time = time.time()
     
     try:
-        logger.info(f"📝 Processing prompt: {request.prompt}")
+        # Check authentication
+        user_id = await get_firebase_user(request)
+        if not user_id:
+            raise HTTPException(
+                status_code=401,
+                detail="Please sign in with Google to browse outfits."
+            )
         
-        # Step 1: Parse prompt with Llama
-        parsed_prompt = llama_service.parse_outfit_prompt(request.prompt)
+        # Check usage limits (per-user AND global)
+        usage = get_user_usage(user_id)
+        if not usage["can_search"]:
+            if usage["search_exhausted"]:
+                raise HTTPException(
+                    status_code=429,
+                    detail="You've already used your 1 free search. Thank you for trying our app!"
+                )
+            else:
+                raise HTTPException(
+                    status_code=429,
+                    detail="Sorry, we've reached our search limit. Please try again later."
+                )
+        
+        # Increment usage (user + global)
+        if not increment_search(user_id):
+            raise HTTPException(status_code=429, detail="Unable to process. Please try again.")
+        
+        gender = prompt_request.gender or "women"
+        logger.info(f"🛍️ Browsing for user {user_id[:8]}...: {prompt_request.prompt}")
+        
+        if not settings.RAPIDAPI_KEY:
+            raise HTTPException(status_code=503, detail="ASOS API not configured")
+        
+        # Parse prompt with LLM
+        parsed_prompt = await llm_service.parse_outfit_prompt(prompt_request.prompt)
         logger.info(f"✅ Parsed: {parsed_prompt.dict()}")
         
-        # Step 2: Find matching outfit combinations
-        outfit_combinations = product_service.find_matching_outfits(
-            db=db,
-            parsed_prompt=parsed_prompt,
-            max_price=request.max_price,
-            num_outfits=3  # Generate 3 outfits
+        # Fetch from ASOS
+        asos_result = await asos_service.browse_fashion(
+            prompt=prompt_request.prompt,
+            num_tops=5,
+            num_bottoms=5,
+            gender=gender
         )
         
-        if not outfit_combinations:
-            raise HTTPException(
-                status_code=404,
-                detail="No matching outfits found for your prompt. Try different keywords."
+        tops = asos_result["tops"]
+        bottoms = asos_result["bottoms"]
+        
+        if not tops or not bottoms:
+            raise HTTPException(status_code=404, detail="No matching products found")
+        
+        # Create product items
+        top_items = [
+            ProductItem(
+                id=t["id"], name=t["name"], category="top",
+                price=t["price"], currency=t["currency"],
+                image_url=t["image_url"], buy_url=t["buy_url"],
+                brand=t["brand"], description=t.get("description", ""),
             )
+            for t in tops
+        ]
         
-        logger.info(f"✅ Found {len(outfit_combinations)} outfit combinations")
+        bottom_items = [
+            ProductItem(
+                id=b["id"], name=b["name"], category="bottom",
+                price=b["price"], currency=b["currency"],
+                image_url=b["image_url"], buy_url=b["buy_url"],
+                brand=b["brand"], description=b.get("description", ""),
+            )
+            for b in bottoms
+        ]
         
-        # Step 3: Generate virtual try-on images
-        logger.info("🎨 Generating try-on images...")
-        
-        # Use local mode if RunPod API is not configured
-        use_local_mode = use_local or not settings.RUNPOD_API_KEY
-        if use_local_mode:
-            logger.info("Using local fallback mode (RunPod not configured)")
-        
-        tryon_urls = await tryon_service.generate_multiple_outfits(
-            outfit_combinations,
-            use_local=use_local_mode
+        # Create combinations (max 3)
+        outfit_combinations = product_service.create_outfit_combinations(
+            tops=top_items,
+            bottoms=bottom_items,
+            max_combinations=3
         )
         
-        # Step 4: Create response with generated outfits
-        generated_outfits = []
-        
-        for i, (combo, tryon_url) in enumerate(zip(outfit_combinations, tryon_urls)):
-            if tryon_url is None:
-                logger.warning(f"Skipping outfit {i+1} - image generation failed")
-                continue
-            
-            outfit_id = f"outfit_{uuid.uuid4().hex[:12]}"
-            
-            generated_outfit = GeneratedOutfit(
-                outfit_id=outfit_id,
+        # Build response
+        generated_outfits = [
+            GeneratedOutfit(
+                outfit_id=f"asos_{uuid.uuid4().hex[:8]}",
+                prompt=prompt_request.prompt,
                 combination=combo,
-                tryon_image_url=tryon_url,
-                prompt=request.prompt,
-                generated_at=datetime.utcnow()
+                tryon_image_url=None,
+                created_at=datetime.now()
             )
-            
-            generated_outfits.append(generated_outfit)
-            
-            # Save to database in background
-            background_tasks.add_task(
-                save_generated_outfit,
-                db=db,
-                outfit_id=outfit_id,
-                combo=combo,
-                tryon_url=tryon_url,
-                prompt=request.prompt,
-                parsed_prompt=parsed_prompt
-            )
-        
-        if not generated_outfits:
-            raise HTTPException(
-                status_code=500,
-                detail="Failed to generate outfit images. Please try again."
-            )
+            for combo in outfit_combinations
+        ]
         
         processing_time = time.time() - start_time
-        
-        # Log search query
-        background_tasks.add_task(
-            log_search_query,
-            db=db,
-            query=request.prompt,
-            parsed_data=parsed_prompt.dict(),
-            results_count=len(generated_outfits),
-            processing_time=processing_time
-        )
-        
-        logger.info(f"✅ Generated {len(generated_outfits)} outfits in {processing_time:.2f}s")
+        logger.info(f"✅ Found {len(generated_outfits)} outfits in {processing_time:.2f}s")
         
         return OutfitResponse(
             success=True,
-            message=f"Generated {len(generated_outfits)} outfit recommendations",
+            message=f"Found {len(generated_outfits)} outfits",
             outfits=generated_outfits,
             total_count=len(generated_outfits),
+            processing_time=processing_time,
+            parsed_prompt=parsed_prompt
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==================== BROWSE OUTFITS (AMAZON) ====================
+
+@app.post(
+    f"{settings.API_PREFIX}/outfits/browse-amazon",
+    response_model=OutfitResponse,
+    tags=["Outfits"],
+    summary="Browse outfits from Amazon"
+)
+@limiter.limit("20/minute")
+async def browse_outfits_amazon(request: Request, prompt_request: OutfitPromptRequest):
+    """
+    Browse outfit combinations from Amazon
+    
+    - Requires Google sign-in
+    - Limited to 1 search per user (lifetime)
+    - Returns 3 outfit combinations per search
+    """
+    start_time = time.time()
+    
+    try:
+        # Check authentication
+        user_id = await get_firebase_user(request)
+        if not user_id:
+            raise HTTPException(
+                status_code=401,
+                detail="Please sign in with Google to browse outfits."
+            )
+        
+        # Check usage limits (per-user AND global)
+        usage = get_user_usage(user_id)
+        if not usage["can_search"]:
+            if usage["search_exhausted"]:
+                raise HTTPException(
+                    status_code=429,
+                    detail="You've already used your 1 free search. Thank you for trying our app!"
+                )
+            else:
+                raise HTTPException(
+                    status_code=429,
+                    detail="Sorry, we've reached our search limit. Please try again later."
+                )
+        
+        # Increment usage (user + global)
+        if not increment_search(user_id):
+            raise HTTPException(status_code=429, detail="Unable to process. Please try again.")
+        
+        gender = prompt_request.gender or "women"
+        logger.info(f"🛒 Amazon browse for user {user_id[:8]}...: {prompt_request.prompt}")
+        
+        if not settings.RAPIDAPI_KEY:
+            raise HTTPException(status_code=503, detail="Amazon API not configured")
+        
+        # Parse prompt with LLM
+        parsed_prompt = await llm_service.parse_outfit_prompt(prompt_request.prompt)
+        logger.info(f"✅ Parsed: {parsed_prompt.dict()}")
+        
+        # Fetch from Amazon
+        amazon_result = await amazon_service.browse_fashion(
+            prompt=prompt_request.prompt,
+            num_tops=5,
+            num_bottoms=5,
+            gender=gender
+        )
+        
+        tops = amazon_result["tops"]
+        bottoms = amazon_result["bottoms"]
+        
+        if not tops or not bottoms:
+            raise HTTPException(status_code=404, detail="No matching products found on Amazon")
+        
+        # Create product items
+        top_items = [
+            ProductItem(
+                id=t["id"], name=t["name"], category="top",
+                price=t["price"], currency=t["currency"],
+                image_url=t["image_url"], buy_url=t["buy_url"],
+                brand=t["brand"], description=t.get("description", ""),
+            )
+            for t in tops
+        ]
+        
+        bottom_items = [
+            ProductItem(
+                id=b["id"], name=b["name"], category="bottom",
+                price=b["price"], currency=b["currency"],
+                image_url=b["image_url"], buy_url=b["buy_url"],
+                brand=b["brand"], description=b.get("description", ""),
+            )
+            for b in bottoms
+        ]
+        
+        # Create combinations (max 3)
+        outfit_combinations = product_service.create_outfit_combinations(
+            tops=top_items,
+            bottoms=bottom_items,
+            max_combinations=3
+        )
+        
+        # Build response
+        generated_outfits = [
+            GeneratedOutfit(
+                outfit_id=f"amz_{uuid.uuid4().hex[:8]}",
+                prompt=prompt_request.prompt,
+                combination=combo,
+                tryon_image_url=None,
+                created_at=datetime.now()
+            )
+            for combo in outfit_combinations
+        ]
+        
+        processing_time = time.time() - start_time
+        logger.info(f"✅ Found {len(generated_outfits)} Amazon outfits in {processing_time:.2f}s")
+        
+        return OutfitResponse(
+            success=True,
+            message=f"Found {len(generated_outfits)} Amazon outfits",
+            outfits=generated_outfits,
+            total_count=len(generated_outfits),
+            processing_time=processing_time,
+            parsed_prompt=parsed_prompt
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Amazon Error: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==================== BROWSE OUTFITS (MIXED STORES) ====================
+
+@app.post(
+    f"{settings.API_PREFIX}/outfits/browse-mixed",
+    response_model=OutfitResponse,
+    tags=["Outfits"],
+    summary="Browse outfits from multiple stores (mixed combinations)"
+)
+@limiter.limit("20/minute")
+async def browse_outfits_mixed(request: Request, prompt_request: OutfitPromptRequest):
+    """
+    Browse outfit combinations from ALL stores (ASOS + Amazon)
+    Creates mixed combinations: e.g., ASOS top + Amazon bottom
+    
+    - Requires Google sign-in
+    - Limited to 1 search per user (lifetime)
+    - Returns 3 outfit combinations per search
+    """
+    start_time = time.time()
+    
+    try:
+        # Check authentication
+        user_id = await get_firebase_user(request)
+        if not user_id:
+            raise HTTPException(
+                status_code=401,
+                detail="Please sign in with Google to browse outfits."
+            )
+        
+        # Check usage limits (per-user AND global)
+        usage = get_user_usage(user_id)
+        if not usage["can_search"]:
+            if usage["search_exhausted"]:
+                raise HTTPException(
+                    status_code=429,
+                    detail="You've already used your 1 free search. Thank you for trying our app!"
+                )
+            else:
+                raise HTTPException(
+                    status_code=429,
+                    detail="Sorry, we've reached our search limit. Please try again later."
+                )
+        
+        # Increment usage (user + global)
+        if not increment_search(user_id):
+            raise HTTPException(status_code=429, detail="Unable to process. Please try again.")
+        
+        gender = prompt_request.gender or "women"
+        logger.info(f"🔀 Mixed store browse for user {user_id[:8]}...: {prompt_request.prompt}")
+        
+        if not settings.RAPIDAPI_KEY:
+            raise HTTPException(status_code=503, detail="API not configured")
+        
+        # Parse prompt with LLM
+        parsed_prompt = await llm_service.parse_outfit_prompt(prompt_request.prompt)
+        logger.info(f"✅ Parsed: {parsed_prompt.dict()}")
+        
+        # Fetch from BOTH stores in parallel
+        import asyncio
+        asos_task = asos_service.browse_fashion(
+            prompt=prompt_request.prompt,
+            num_tops=3,
+            num_bottoms=3,
+            gender=gender
+        )
+        amazon_task = amazon_service.browse_fashion(
+            prompt=prompt_request.prompt,
+            num_tops=3,
+            num_bottoms=3,
+            gender=gender
+        )
+        
+        asos_result, amazon_result = await asyncio.gather(asos_task, amazon_task)
+        
+        # Combine products from both stores
+        all_tops = []
+        all_bottoms = []
+        
+        # Add ASOS products
+        for t in asos_result.get("tops", []):
+            t["source"] = "asos"
+            all_tops.append(t)
+        for b in asos_result.get("bottoms", []):
+            b["source"] = "asos"
+            all_bottoms.append(b)
+        
+        # Add Amazon products
+        for t in amazon_result.get("tops", []):
+            t["source"] = "amazon"
+            all_tops.append(t)
+        for b in amazon_result.get("bottoms", []):
+            b["source"] = "amazon"
+            all_bottoms.append(b)
+        
+        logger.info(f"📦 Combined: {len(all_tops)} tops, {len(all_bottoms)} bottoms from both stores")
+        
+        if not all_tops or not all_bottoms:
+            raise HTTPException(status_code=404, detail="No matching products found")
+        
+        # Create product items with source info in brand
+        top_items = [
+            ProductItem(
+                id=t["id"], name=t["name"], category="top",
+                price=t["price"], currency=t.get("currency", "INR"),
+                image_url=t["image_url"], buy_url=t["buy_url"],
+                brand=f"{t.get('brand', 'Unknown')} ({t.get('source', 'unknown').upper()})",
+                description=t.get("description", ""),
+            )
+            for t in all_tops
+        ]
+        
+        bottom_items = [
+            ProductItem(
+                id=b["id"], name=b["name"], category="bottom",
+                price=b["price"], currency=b.get("currency", "INR"),
+                image_url=b["image_url"], buy_url=b["buy_url"],
+                brand=f"{b.get('brand', 'Unknown')} ({b.get('source', 'unknown').upper()})",
+                description=b.get("description", ""),
+            )
+            for b in all_bottoms
+        ]
+        
+        # Create MIXED combinations (max 3) - prioritize cross-store combos
+        outfit_combinations = product_service.create_mixed_outfit_combinations(
+            tops=top_items,
+            bottoms=bottom_items,
+            max_combinations=3
+        )
+        
+        # Build response
+        generated_outfits = [
+            GeneratedOutfit(
+                outfit_id=f"mix_{uuid.uuid4().hex[:8]}",
+                prompt=prompt_request.prompt,
+                combination=combo,
+                tryon_image_url=None,
+                created_at=datetime.now()
+            )
+            for combo in outfit_combinations
+        ]
+        
+        processing_time = time.time() - start_time
+        logger.info(f"✅ Found {len(generated_outfits)} mixed outfits in {processing_time:.2f}s")
+        
+        return OutfitResponse(
+            success=True,
+            message=f"Found {len(generated_outfits)} mixed outfits from ASOS + Amazon",
+            outfits=generated_outfits,
+            total_count=len(generated_outfits),
+            processing_time=processing_time,
+            parsed_prompt=parsed_prompt
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Mixed Store Error: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==================== VIRTUAL TRY-ON ====================
+
+class TryOnRequest(BaseModel):
+    top_image_url: Optional[str] = None
+    bottom_image_url: Optional[str] = None
+    model_image_url: Optional[str] = None
+    top_image_base64: Optional[str] = None
+    bottom_image_base64: Optional[str] = None
+
+class TryOnResponse(BaseModel):
+    success: bool
+    tryon_image_url: str
+    processing_time: float
+
+@app.post(
+    f"{settings.API_PREFIX}/outfits/tryon",
+    response_model=TryOnResponse,
+    tags=["Outfits"],
+    summary="Generate virtual try-on"
+)
+@limiter.limit("5/minute")
+async def generate_tryon(request: Request, tryon_request: TryOnRequest):
+    """
+    Generate virtual try-on for an outfit
+    
+    - Requires Google sign-in
+    - Limited to 1 try-on per 5 days
+    """
+    start_time = time.time()
+    
+    try:
+        # Check authentication
+        user_id = await get_firebase_user(request)
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Please sign in to use try-on")
+        
+        # Check usage limits (per-user AND global)
+        usage = get_user_usage(user_id)
+        if not usage["can_tryon"]:
+            if usage["tryon_exhausted"]:
+                raise HTTPException(
+                    status_code=429,
+                    detail="You've already used your 1 free virtual try-on. Thank you for trying our app!"
+                )
+            else:
+                raise HTTPException(
+                    status_code=429,
+                    detail="Sorry, we've reached our try-on limit. Please try again later."
+                )
+        
+        # Increment usage (user + global)
+        if not increment_tryon(user_id):
+            raise HTTPException(status_code=429, detail="Unable to process. Please try again.")
+        
+        # Get model image
+        model_url = tryon_request.model_image_url or settings.MODEL_IMAGE_URL
+        
+        # Process images (base64 preferred, fallback to URL)
+        top_image_url = None
+        bottom_image_url = None
+        
+        if tryon_request.top_image_base64:
+            top_pil = tryon_service.base64_to_image(tryon_request.top_image_base64)
+            top_image_url = await tryon_service._upload_to_cloudinary(top_pil, "tryon_top")
+        elif tryon_request.top_image_url:
+            top_image_url = tryon_request.top_image_url
+        else:
+            raise HTTPException(status_code=400, detail="No top image provided")
+        
+        if tryon_request.bottom_image_base64:
+            bottom_pil = tryon_service.base64_to_image(tryon_request.bottom_image_base64)
+            bottom_image_url = await tryon_service._upload_to_cloudinary(bottom_pil, "tryon_bottom")
+        elif tryon_request.bottom_image_url:
+            bottom_image_url = tryon_request.bottom_image_url
+        else:
+            raise HTTPException(status_code=400, detail="No bottom image provided")
+        
+        logger.info(f"🎨 Generating try-on for user {user_id[:8]}...")
+        
+        # Generate try-on
+        result_image = await tryon_service.generate_full_outfit_tryon(
+            model_image_url=model_url,
+            top_image_url=top_image_url,
+            bottom_image_url=bottom_image_url
+        )
+        
+        # Fallback if AI fails
+        if not result_image:
+            logger.warning("⚠️ AI try-on failed, using fallback...")
+            from app.services.garment_extractor import garment_extractor
+            top_img = await garment_extractor.download_image(top_image_url)
+            bottom_img = await garment_extractor.download_image(bottom_image_url)
+            
+            if top_img and bottom_img:
+                if top_img.mode == 'RGBA':
+                    top_img = top_img.convert('RGB')
+                if bottom_img.mode == 'RGBA':
+                    bottom_img = bottom_img.convert('RGB')
+                result_image = tryon_service.create_outfit_preview(top_img, bottom_img)
+            else:
+                raise HTTPException(status_code=503, detail="Unable to process images")
+        
+        tryon_url = tryon_service.image_to_data_url(result_image)
+        processing_time = time.time() - start_time
+        
+        logger.info(f"✅ Try-on generated in {processing_time:.2f}s")
+        
+        return TryOnResponse(
+            success=True,
+            tryon_image_url=tryon_url,
             processing_time=processing_time
         )
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ Error generating outfits: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Internal server error: {str(e)}"
-        )
+        logger.error(f"❌ Error: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-# ==================== USER FEEDBACK ====================
+# ==================== UPLOAD IMAGE ====================
+
+class UploadResponse(BaseModel):
+    success: bool
+    image_url: str
+    filename: str
 
 @app.post(
-    f"{settings.API_PREFIX}/outfits/feedback",
-    tags=["Outfits"],
-    summary="Record user feedback on outfit"
+    f"{settings.API_PREFIX}/upload/model-image",
+    response_model=UploadResponse,
+    tags=["Upload"],
+    summary="Upload user photo for try-on"
 )
-async def submit_feedback(
-    request: UserFeedbackRequest,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)
-):
-    """
-    Record user feedback (like/dislike/skip) on outfit
+async def upload_model_image(file: UploadFile = File(...)):
+    """Upload a user photo for virtual try-on"""
+    try:
+        if not file.content_type.startswith("image/"):
+            raise HTTPException(status_code=400, detail="File must be an image")
+        
+        content = await file.read()
+        public_id = f"user_models/user_{uuid.uuid4().hex[:12]}"
+        
+        result = cloudinary.uploader.upload(
+            io.BytesIO(content),
+            public_id=public_id,
+            resource_type="image",
+            overwrite=True
+        )
+        
+        image_url = result.get('secure_url')
+        logger.info(f"✅ Uploaded: {image_url}")
+        
+        return UploadResponse(success=True, image_url=image_url, filename=public_id)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Upload failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==================== USAGE ====================
+
+@app.get(f"{settings.API_PREFIX}/usage", tags=["Usage"])
+async def get_usage(request: Request):
+    """Get current user's usage stats"""
+    user_id = await get_firebase_user(request)
+    global_usage = get_global_usage()
     
-    - **outfit_id**: ID of the outfit
-    - **action**: User action (like/dislike/skip)
-    - **user_id**: Optional user ID for tracking
-    """
-    try:
-        # Save feedback in background
-        background_tasks.add_task(
-            save_user_feedback,
-            db=db,
-            outfit_id=request.outfit_id,
-            action=request.action.value,
-            user_id=request.user_id
-        )
-        
-        return {"success": True, "message": "Feedback recorded"}
-        
-    except Exception as e:
-        logger.error(f"Error recording feedback: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# ==================== PRODUCT SYNC ====================
-
-@app.post(
-    f"{settings.API_PREFIX}/products/sync",
-    tags=["Products"],
-    summary="Sync products from external APIs"
-)
-async def sync_products(
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)
-):
-    """
-    Fetch and sync products from external APIs to database
-    This should be run periodically to update product catalog
-    """
-    try:
-        count = await product_service.sync_products_to_db(db)
+    if not user_id:
         return {
-            "success": True,
-            "message": f"Synced {count} products",
-            "count": count
+            "search_count": 0,
+            "tryon_count": 0,
+            "search_limit": 1,
+            "tryon_limit": 1,
+            "can_search": global_usage["searches_available"],
+            "can_tryon": global_usage["tryons_available"],
+            "authenticated": False,
+            "global_searches_remaining": global_usage["searches_remaining"],
+            "global_tryons_remaining": global_usage["tryons_remaining"],
         }
-    except Exception as e:
-        logger.error(f"Error syncing products: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    
+    usage = get_user_usage(user_id)
+    usage["authenticated"] = True
+    return usage
 
 
-@app.get(
-    f"{settings.API_PREFIX}/products/count",
-    tags=["Products"],
-    summary="Get product count"
-)
-async def get_product_count(db: Session = Depends(get_db)):
-    """Get total number of products in database"""
-    count = db.query(Product).filter(Product.is_active == True).count()
-    return {"count": count}
-
-
-# ==================== BACKGROUND TASKS ====================
-
-def save_generated_outfit(
-    db: Session,
-    outfit_id: str,
-    combo,
-    tryon_url: str,
-    prompt: str,
-    parsed_prompt
-):
-    """Save generated outfit to database"""
-    try:
-        db_outfit = DBOutfit(
-            outfit_id=outfit_id,
-            top_id=combo.top.id,
-            bottom_id=combo.bottom.id,
-            tryon_image_url=tryon_url,
-            original_prompt=prompt,
-            parsed_prompt=parsed_prompt.dict() if parsed_prompt else None,
-            total_price=combo.total_price,
-            match_score=combo.match_score,
-            style_tags=combo.style_tags
-        )
-        db.add(db_outfit)
-        db.commit()
-        logger.info(f"✅ Saved outfit {outfit_id} to database")
-    except Exception as e:
-        logger.error(f"Failed to save outfit: {e}")
-        db.rollback()
-
-
-def save_user_feedback(
-    db: Session,
-    outfit_id: str,
-    action: str,
-    user_id: str = None
-):
-    """Save user feedback to database"""
-    try:
-        feedback = DBFeedback(
-            outfit_id=outfit_id,
-            user_id=user_id,
-            action=action
-        )
-        db.add(feedback)
-        
-        # Update outfit statistics
-        outfit = db.query(DBOutfit).filter(DBOutfit.outfit_id == outfit_id).first()
-        if outfit:
-            if action == "like":
-                outfit.like_count += 1
-            elif action == "dislike":
-                outfit.dislike_count += 1
-        
-        db.commit()
-        logger.info(f"✅ Saved feedback for outfit {outfit_id}")
-    except Exception as e:
-        logger.error(f"Failed to save feedback: {e}")
-        db.rollback()
-
-
-def log_search_query(
-    db: Session,
-    query: str,
-    parsed_data: dict,
-    results_count: int,
-    processing_time: float
-):
-    """Log search query for analytics"""
-    try:
-        search_log = DBSearchQuery(
-            query=query,
-            parsed_data=parsed_data,
-            results_count=results_count,
-            processing_time=processing_time
-        )
-        db.add(search_log)
-        db.commit()
-    except Exception as e:
-        logger.error(f"Failed to log search query: {e}")
-        db.rollback()
+@app.get(f"{settings.API_PREFIX}/admin/stats", tags=["Admin"])
+async def admin_stats():
+    """
+    Get admin statistics (for monitoring usage)
+    Shows total users, searches used, try-ons used, remaining limits
+    """
+    return get_admin_stats()
 
 
 # ==================== ERROR HANDLERS ====================
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):
-    """Custom HTTP exception handler"""
     return JSONResponse(
         status_code=exc.status_code,
-        content={
-            "success": False,
-            "error": exc.detail,
-            "error_code": exc.status_code
-        }
+        content={"success": False, "error": exc.detail, "error_code": exc.status_code}
     )
-
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request, exc):
-    """General exception handler"""
     logger.error(f"Unhandled exception: {exc}")
     return JSONResponse(
         status_code=500,
-        content={
-            "success": False,
-            "error": "Internal server error",
-            "detail": str(exc) if settings.DEBUG else "An error occurred"
-        }
+        content={"success": False, "error": "Internal server error"}
     )
 
 
@@ -469,21 +803,14 @@ async def general_exception_handler(request, exc):
 
 @app.get("/", tags=["Root"])
 async def root():
-    """Root endpoint"""
     return {
         "app": settings.APP_NAME,
         "version": settings.APP_VERSION,
         "status": "running",
-        "docs": "/docs",
-        "health": "/health"
+        "docs": "/docs"
     }
 
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(
-        "app.main:app",
-        host=settings.API_HOST,
-        port=settings.API_PORT,
-        reload=settings.DEBUG
-    )
+    uvicorn.run("app.main:app", host=settings.API_HOST, port=settings.API_PORT, reload=settings.DEBUG)
