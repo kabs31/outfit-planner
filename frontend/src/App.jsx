@@ -208,7 +208,6 @@ function App() {
   // Handle swipe
   const onSwipe = (direction, outfit, index) => {
     updateCurrentIndex(index - 1)
-    api.submitFeedback(outfit.outfit_id, direction === 'right' ? 'like' : 'dislike').catch(() => {})
 
     if (direction === 'right') {
       setRevealedOutfit(outfit)

@@ -748,6 +748,13 @@ async def upload_model_image(file: UploadFile = File(...)):
 
 # ==================== USAGE ====================
 
+@app.post(f"{settings.API_PREFIX}/outfits/feedback", tags=["Outfits"])
+async def submit_feedback(request: Request):
+    """Submit user feedback (no-op - kept for frontend compatibility)"""
+    # We don't store feedback anymore, but keep endpoint to avoid 404 errors
+    return {"success": True, "message": "Feedback received"}
+
+
 @app.get(f"{settings.API_PREFIX}/usage", tags=["Usage"])
 async def get_usage(request: Request):
     """Get current user's usage stats"""
