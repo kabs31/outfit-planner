@@ -430,6 +430,178 @@ Return ONLY the JSON array, no other text."""
         
         return filtered
     
+    async def check_outfit_compatibility(
+        self,
+        top: Dict,
+        bottom: Dict,
+        user_prompt: Optional[str] = None
+    ) -> Dict[str, any]:
+        """
+        Check if top and bottom products match/go well together using LLM
+        
+        Args:
+            top: Top product dict with name, description, category, brand, etc.
+            bottom: Bottom product dict with name, description, category, brand, etc.
+            user_prompt: Optional user's original prompt for context
+            
+        Returns:
+            Dict with:
+                - compatible: bool (True if they match well)
+                - compatibility_score: float (0.0 to 1.0)
+                - reasoning: str (why they match or don't match)
+        """
+        if not self.is_configured:
+            # Fallback: simple keyword matching
+            return self._fallback_compatibility_check(top, bottom)
+        
+        try:
+            # Prepare product info
+            top_info = {
+                "name": top.get("name", ""),
+                "description": top.get("description", ""),
+                "category": top.get("category", ""),
+                "brand": top.get("brand", "")
+            }
+            
+            bottom_info = {
+                "name": bottom.get("name", ""),
+                "description": bottom.get("description", ""),
+                "category": bottom.get("category", ""),
+                "brand": bottom.get("brand", "")
+            }
+            
+            # Create prompt for LLM
+            system_prompt = """You are a fashion stylist expert. Analyze if a top and bottom product go well together as an outfit.
+
+Consider:
+1. Style compatibility (casual with casual, formal with formal, etc.)
+2. Color coordination (complementary, matching, or clashing colors)
+3. Occasion appropriateness (both suitable for same occasion)
+4. Aesthetic harmony (do they create a cohesive look?)
+5. Fashion rules and trends
+
+Respond with JSON only:
+{
+  "compatible": true/false,
+  "compatibility_score": 0.0-1.0,
+  "reasoning": "brief explanation why they match or don't match"
+}
+
+Be strict - only mark as compatible if they truly go well together."""
+            
+            user_prompt_text = f"""Top Product:
+Name: {top_info['name']}
+Description: {top_info['description']}
+Category: {top_info['category']}
+Brand: {top_info['brand']}
+
+Bottom Product:
+Name: {bottom_info['name']}
+Description: {bottom_info['description']}
+Category: {bottom_info['category']}
+Brand: {bottom_info['brand']}
+"""
+            
+            if user_prompt:
+                user_prompt_text += f"\nUser's style request: {user_prompt}"
+            
+            user_prompt_text += "\n\nDo these go well together? Respond with JSON:"
+            
+            # Call Groq API
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    GROQ_API_URL,
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": self.model,
+                        "messages": [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt_text}
+                        ],
+                        "temperature": 0.2,  # Low temperature for consistent evaluation
+                        "max_tokens": 200
+                    },
+                    timeout=30.0
+                )
+                
+                if response.status_code != 200:
+                    logger.error(f"Groq API error for compatibility check: {response.status_code}")
+                    return self._fallback_compatibility_check(top, bottom)
+                
+                data = response.json()
+                content = data["choices"][0]["message"]["content"]
+                
+                # Extract JSON from response
+                try:
+                    parsed_data = self._extract_json(content)
+                    
+                    # Validate response structure
+                    compatible = parsed_data.get("compatible", False)
+                    score = float(parsed_data.get("compatibility_score", 0.5))
+                    reasoning = parsed_data.get("reasoning", "No reasoning provided")
+                    
+                    # Clamp score to 0-1
+                    score = max(0.0, min(1.0, score))
+                    
+                    logger.info(f"✅ Compatibility check: {compatible} (score: {score:.2f}) - {reasoning[:50]}")
+                    
+                    return {
+                        "compatible": compatible,
+                        "compatibility_score": score,
+                        "reasoning": reasoning
+                    }
+                except Exception as e:
+                    logger.warning(f"Could not parse compatibility response: {content[:100]} - Error: {e}")
+                    return self._fallback_compatibility_check(top, bottom)
+                    
+        except Exception as e:
+            logger.error(f"❌ LLM compatibility check failed: {e}")
+            return self._fallback_compatibility_check(top, bottom)
+    
+    def _fallback_compatibility_check(self, top: Dict, bottom: Dict) -> Dict[str, any]:
+        """Fallback compatibility check using simple keyword matching"""
+        top_text = f"{top.get('name', '')} {top.get('description', '')}".lower()
+        bottom_text = f"{bottom.get('name', '')} {bottom.get('description', '')}".lower()
+        
+        # Simple style matching
+        casual_keywords = ['casual', 'everyday', 'relaxed', 'comfortable', 't-shirt', 'jeans']
+        formal_keywords = ['formal', 'dress', 'suit', 'elegant', 'business', 'professional']
+        sporty_keywords = ['sport', 'athletic', 'gym', 'workout', 'active']
+        
+        top_style = None
+        bottom_style = None
+        
+        if any(kw in top_text for kw in casual_keywords):
+            top_style = 'casual'
+        elif any(kw in top_text for kw in formal_keywords):
+            top_style = 'formal'
+        elif any(kw in top_text for kw in sporty_keywords):
+            top_style = 'sporty'
+        
+        if any(kw in bottom_text for kw in casual_keywords):
+            bottom_style = 'casual'
+        elif any(kw in bottom_text for kw in formal_keywords):
+            bottom_style = 'formal'
+        elif any(kw in bottom_text for kw in sporty_keywords):
+            bottom_style = 'sporty'
+        
+        # If styles match, give higher score
+        if top_style and bottom_style:
+            compatible = top_style == bottom_style
+            score = 0.7 if compatible else 0.4
+        else:
+            compatible = True  # Default to compatible if can't determine
+            score = 0.5
+        
+        return {
+            "compatible": compatible,
+            "compatibility_score": score,
+            "reasoning": f"Fallback check: {top_style or 'unknown'} top with {bottom_style or 'unknown'} bottom"
+        }
+    
     async def health_check(self) -> Dict[str, str]:
         """Check if LLM service is healthy"""
         if not self.is_configured:

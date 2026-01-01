@@ -250,11 +250,12 @@ async def browse_outfits_asos(request: Request, prompt_request: OutfitPromptRequ
             for b in bottoms
         ]
         
-        # Create combinations (max 3)
-        outfit_combinations = product_service.create_outfit_combinations(
+        # Create combinations (max 3) with LLM compatibility check
+        outfit_combinations = await product_service.create_outfit_combinations(
             tops=top_items,
             bottoms=bottom_items,
-            max_combinations=3
+            max_combinations=3,
+            user_prompt=prompt_request.prompt
         )
         
         # Build response
@@ -381,11 +382,12 @@ async def browse_outfits_amazon(request: Request, prompt_request: OutfitPromptRe
             for b in bottoms
         ]
         
-        # Create combinations (max 3)
-        outfit_combinations = product_service.create_outfit_combinations(
+        # Create combinations (max 3) with LLM compatibility check
+        outfit_combinations = await product_service.create_outfit_combinations(
             tops=top_items,
             bottoms=bottom_items,
-            max_combinations=3
+            max_combinations=3,
+            user_prompt=prompt_request.prompt
         )
         
         # Build response
@@ -543,11 +545,12 @@ async def browse_outfits_mixed(request: Request, prompt_request: OutfitPromptReq
             for b in all_bottoms
         ]
         
-        # Create MIXED combinations (max 3) - prioritize cross-store combos
-        outfit_combinations = product_service.create_mixed_outfit_combinations(
+        # Create MIXED combinations (max 3) - prioritize cross-store combos with LLM compatibility check
+        outfit_combinations = await product_service.create_mixed_outfit_combinations(
             tops=top_items,
             bottoms=bottom_items,
-            max_combinations=3
+            max_combinations=3,
+            user_prompt=prompt_request.prompt
         )
         
         # Build response
