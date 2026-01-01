@@ -103,21 +103,40 @@ class AmazonService:
         products = await self.search_products(search_query, limit=limit * 2, sort_by="BEST_SELLERS")
         transformed = self._transform_products(products, "top")
         
-        # Filter out wrong gender using word boundaries
-        # Note: "women" contains "men", so we need careful matching
+        # Filter out wrong gender - more aggressive filtering
         if gender == "women":
-            # For women's products, exclude items with "men's", "mens", "boys"
-            exclude_patterns = [" men ", " mens ", " men's ", "for men", "boys", " boy "]
+            # For women's products, exclude items with men/boys
+            exclude_patterns = [" men ", " mens ", " men's ", "for men", "boys", " boy ", "male", "gentleman"]
         else:
-            # For men's products, exclude women/ladies/girls
-            exclude_patterns = [" women ", " womens ", " women's ", "for women", "ladies", " girl", "girls"]
+            # For men's products, exclude women/ladies/girls/dresses/skirts
+            exclude_patterns = [
+                " women ", " womens ", " women's ", "for women", "ladies", 
+                " girl", "girls", "dress", "dresses", "skirt", "skirts",
+                "female", "feminine"
+            ]
+            # Must include men keywords (strict requirement)
+            include_patterns = ["men", "mens", "man", "male", "gentleman"]
         
         filtered = []
         for p in transformed:
-            name_lower = " " + p.get("name", "").lower() + " "  # Add spaces for word boundary matching
-            has_excluded = any(pat in name_lower for pat in exclude_patterns)
-            if not has_excluded:
-                filtered.append(p)
+            name_lower = " " + p.get("name", "").lower() + " "
+            description_lower = " " + (p.get("description", "") or "").lower() + " "
+            full_text = name_lower + description_lower
+            
+            # Check if it has excluded patterns
+            has_excluded = any(pat in full_text for pat in exclude_patterns)
+            
+            # For men, require men keywords (more strict)
+            if gender == "men":
+                has_men_keyword = any(pat in full_text for pat in include_patterns)
+                if has_excluded or not has_men_keyword:
+                    continue
+            else:
+                # For women, just exclude men products
+                if has_excluded:
+                    continue
+            
+            filtered.append(p)
         
         return filtered[:limit]
     
@@ -129,21 +148,43 @@ class AmazonService:
         else:
             search_query = f"men jeans pants trousers {query}".strip()
         
-        products = await self.search_products(search_query, limit=limit * 2, sort_by="BEST_SELLERS")
+        products = await self.search_products(search_query, limit=limit * 3, sort_by="BEST_SELLERS")
         transformed = self._transform_products(products, "bottom")
         
-        # Filter out wrong gender using word boundaries
+        # Filter out wrong gender - more aggressive filtering
         if gender == "women":
-            exclude_patterns = [" men ", " mens ", " men's ", "for men", "boys", " boy "]
+            # For women's products, exclude items with men/boys
+            exclude_patterns = [" men ", " mens ", " men's ", "for men", "boys", " boy ", "male", "gentleman"]
         else:
-            exclude_patterns = [" women ", " womens ", " women's ", "for women", "ladies", " girl", "girls"]
+            # For men's products, exclude women/ladies/girls/dresses/skirts
+            exclude_patterns = [
+                " women ", " womens ", " women's ", "for women", "ladies", 
+                " girl", "girls", "dress", "dresses", "skirt", "skirts",
+                "female", "feminine"
+            ]
+            # Must include men keywords (strict requirement)
+            include_patterns = ["men", "mens", "man", "male", "gentleman"]
         
         filtered = []
         for p in transformed:
             name_lower = " " + p.get("name", "").lower() + " "
-            has_excluded = any(pat in name_lower for pat in exclude_patterns)
-            if not has_excluded:
-                filtered.append(p)
+            description_lower = " " + (p.get("description", "") or "").lower() + " "
+            full_text = name_lower + description_lower
+            
+            # Check if it has excluded patterns
+            has_excluded = any(pat in full_text for pat in exclude_patterns)
+            
+            # For men, require men keywords (more strict)
+            if gender == "men":
+                has_men_keyword = any(pat in full_text for pat in include_patterns)
+                if has_excluded or not has_men_keyword:
+                    continue
+            else:
+                # For women, just exclude men products
+                if has_excluded:
+                    continue
+            
+            filtered.append(p)
         
         return filtered[:limit]
     
