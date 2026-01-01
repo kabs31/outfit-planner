@@ -302,10 +302,57 @@ function App() {
         </div>
       </header>
 
-      {/* Features Showcase Section */}
+      {/* Introduction & Features Showcase Section */}
       {!outfits.length && (
         <div className="features-showcase">
           <div className="features-container">
+            {/* Introduction Section */}
+            <motion.div 
+              className="intro-section"
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+            >
+              <h2 className="intro-title">Welcome to AI Outfit Recommender</h2>
+              <p className="intro-description">
+                The next-generation fashion shopping experience powered by artificial intelligence. 
+                Say goodbye to endless scrolling and guesswork. Our AI understands your style, 
+                finds perfect outfits across multiple stores, and lets you see how they look on you 
+                before you buy.
+              </p>
+              
+              <div className="intro-highlights">
+                <div className="intro-highlight-item">
+                  <span className="highlight-icon">🎯</span>
+                  <div>
+                    <strong>Describe Your Style</strong>
+                    <p>Just tell us what you're looking for in plain English</p>
+                  </div>
+                </div>
+                <div className="intro-highlight-item">
+                  <span className="highlight-icon">🔍</span>
+                  <div>
+                    <strong>AI Finds It</strong>
+                    <p>Our advanced LLM searches across ASOS & Amazon</p>
+                  </div>
+                </div>
+                <div className="intro-highlight-item">
+                  <span className="highlight-icon">✨</span>
+                  <div>
+                    <strong>Try It On</strong>
+                    <p>See how outfits look on you with AI virtual try-on</p>
+                  </div>
+                </div>
+                <div className="intro-highlight-item">
+                  <span className="highlight-icon">💳</span>
+                  <div>
+                    <strong>Buy Instantly</strong>
+                    <p>Swipe right to reveal prices and purchase links</p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+
             <div className="features-header">
               <h2>🚀 What Makes This Special?</h2>
               <p className="features-subtitle">The future of fashion shopping is here</p>
