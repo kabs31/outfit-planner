@@ -602,6 +602,128 @@ Brand: {bottom_info['brand']}
             "reasoning": f"Fallback check: {top_style or 'unknown'} top with {bottom_style or 'unknown'} bottom"
         }
     
+    async def generate_search_query_for_category(
+        self,
+        user_query: str,
+        category: str,
+        gender: str
+    ) -> str:
+        """
+        Generate optimized search query for a specific category (tops/bottoms)
+        Uses LLM to detect if query is direct clothing type or descriptive, then generates appropriate terms
+        
+        Args:
+            user_query: User's search query (e.g., "blazers", "casual summer", "beach party")
+            category: "top" or "bottom"
+            gender: "men" or "women"
+            
+        Returns:
+            Optimized search query string ready for API
+        """
+        if not self.is_configured:
+            # Fallback: simple logic
+            gender_prefix = "mens" if gender == "men" else "womens"
+            if category == "top":
+                return f"{gender_prefix} {user_query} shirt".strip()
+            else:
+                return f"{gender_prefix} {user_query} pants jeans".strip()
+        
+        try:
+            system_prompt = f"""You are a fashion search query optimizer. Analyze the user's query and generate the best search terms for {category} products ({gender}).
+
+Determine if the query is:
+1. DIRECT: Specific clothing type (e.g., "blazers", "suits", "jackets", "hoodies", "cardigans")
+2. DESCRIPTIVE: Style/occasion/mood (e.g., "casual summer", "beach party", "formal", "workout")
+
+Rules:
+- If DIRECT: Use the query as-is, just add gender prefix (e.g., "blazers" → "mens blazers")
+- If DESCRIPTIVE: Generate appropriate clothing terms based on context:
+  * For tops: shirt, t-shirt, polo, top, blouse, kurta, etc.
+  * For bottoms: pants, jeans, trousers, shorts, etc.
+  * Choose terms that match the style/occasion described
+
+Respond with JSON only:
+{{
+  "is_direct": true/false,
+  "search_query": "final search query with gender prefix"
+}}
+
+Example 1 (direct):
+Input: "blazers", category: "top", gender: "men"
+Output: {{"is_direct": true, "search_query": "mens blazers"}}
+
+Example 2 (descriptive):
+Input: "casual summer", category: "top", gender: "men"
+Output: {{"is_direct": false, "search_query": "mens casual summer shirt t-shirt"}}
+
+Example 3 (descriptive):
+Input: "beach party", category: "bottom", gender: "women"
+Output: {{"is_direct": false, "search_query": "womens beach party pants shorts"}}
+
+Return ONLY the JSON, no other text."""
+            
+            user_prompt = f"User query: {user_query}\nCategory: {category}\nGender: {gender}\n\nGenerate search query:"
+            
+            # Call Groq API
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    GROQ_API_URL,
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": self.model,
+                        "messages": [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt}
+                        ],
+                        "temperature": 0.2,
+                        "max_tokens": 150
+                    },
+                    timeout=30.0
+                )
+                
+                if response.status_code != 200:
+                    logger.error(f"Groq API error for search query generation: {response.status_code}")
+                    # Fallback
+                    gender_prefix = "mens" if gender == "men" else "womens"
+                    if category == "top":
+                        return f"{gender_prefix} {user_query} shirt".strip()
+                    else:
+                        return f"{gender_prefix} {user_query} pants jeans".strip()
+                
+                data = response.json()
+                content = data["choices"][0]["message"]["content"]
+                
+                # Extract JSON from response
+                try:
+                    parsed_data = self._extract_json(content)
+                    search_query = parsed_data.get("search_query", "")
+                    
+                    if search_query:
+                        logger.info(f"✅ Generated search query: {search_query} (direct: {parsed_data.get('is_direct', False)})")
+                        return search_query
+                    else:
+                        raise ValueError("No search_query in response")
+                except Exception as e:
+                    logger.warning(f"Could not parse LLM response: {content[:100]} - Error: {e}")
+                    # Fallback
+                    gender_prefix = "mens" if gender == "men" else "womens"
+                    if category == "top":
+                        return f"{gender_prefix} {user_query} shirt".strip()
+                    else:
+                        return f"{gender_prefix} {user_query} pants jeans".strip()
+                        
+        except Exception as e:
+            logger.error(f"❌ LLM search query generation failed: {e}")
+            # Fallback
+            gender_prefix = "mens" if gender == "men" else "womens"
+            if category == "top":
+                return f"{gender_prefix} {user_query} shirt".strip()
+            else:
+                return f"{gender_prefix} {user_query} pants jeans".strip()
+    
     async def health_check(self) -> Dict[str, str]:
         """Check if LLM service is healthy"""
         if not self.is_configured:

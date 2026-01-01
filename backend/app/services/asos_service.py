@@ -109,18 +109,14 @@ class ASOSService:
     
     async def get_tops(self, query: str = "", limit: int = 10, gender: str = "women") -> List[Dict]:
         """Get top/shirt products"""
-        if gender == "men":
-            search_query = f"mens {query} shirt".strip()
-        else:
-            search_query = f"womens {query} top".strip()
+        # Use LLM to generate optimal search query
+        search_query = await llm_service.generate_search_query_for_category(query, "top", gender)
         return await self.search_products(search_query, category="top", limit=limit, gender=gender)
     
     async def get_bottoms(self, query: str = "", limit: int = 10, gender: str = "women") -> List[Dict]:
         """Get bottom/pants products"""
-        if gender == "men":
-            search_query = f"mens {query} jeans pants".strip()
-        else:
-            search_query = f"womens {query} pants jeans".strip()
+        # Use LLM to generate optimal search query
+        search_query = await llm_service.generate_search_query_for_category(query, "bottom", gender)
         return await self.search_products(search_query, category="bottom", limit=limit, gender=gender)
     
     async def get_dresses(self, query: str = "", limit: int = 10, gender: str = "women") -> List[Dict]:

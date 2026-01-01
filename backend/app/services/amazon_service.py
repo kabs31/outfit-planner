@@ -95,11 +95,8 @@ class AmazonService:
     
     async def get_tops(self, query: str = "", limit: int = 10, gender: str = "women") -> List[Dict]:
         """Get top/shirt products from Amazon"""
-        # Build search query
-        if gender == "women":
-            search_query = f"women top shirt kurta {query}".strip()
-        else:
-            search_query = f"men shirt t-shirt polo {query}".strip()
+        # Use LLM to generate optimal search query
+        search_query = await llm_service.generate_search_query_for_category(query, "top", gender)
         
         products = await self.search_products(search_query, limit=limit * 3, sort_by="BEST_SELLERS")
         transformed = self._transform_products(products, "top")
@@ -111,11 +108,8 @@ class AmazonService:
     
     async def get_bottoms(self, query: str = "", limit: int = 10, gender: str = "women") -> List[Dict]:
         """Get bottom/pants products from Amazon"""
-        # Build search query
-        if gender == "women":
-            search_query = f"women jeans pants palazzo {query}".strip()
-        else:
-            search_query = f"men jeans pants trousers {query}".strip()
+        # Use LLM to generate optimal search query
+        search_query = await llm_service.generate_search_query_for_category(query, "bottom", gender)
         
         products = await self.search_products(search_query, limit=limit * 3, sort_by="BEST_SELLERS")
         transformed = self._transform_products(products, "bottom")
