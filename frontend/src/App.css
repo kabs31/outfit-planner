@@ -102,6 +102,195 @@ body::before {
   letter-spacing: 0.02em;
 }
 
+/* ============ FEATURES SHOWCASE ============ */
+.features-showcase {
+  max-width: 1200px;
+  margin: 0 auto 3rem;
+  padding: 0 1.5rem;
+}
+
+.features-container {
+  background: linear-gradient(145deg, rgba(26, 26, 46, 0.8) 0%, rgba(22, 33, 62, 0.9) 100%);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  padding: 3rem 2rem;
+  backdrop-filter: blur(20px);
+  box-shadow: var(--shadow-lg);
+  position: relative;
+  overflow: hidden;
+}
+
+.features-container::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(233, 69, 96, 0.1) 0%, transparent 70%);
+  animation: pulse 8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 0.5; }
+  50% { transform: scale(1.1); opacity: 0.8; }
+}
+
+.features-header {
+  text-align: center;
+  margin-bottom: 3rem;
+  position: relative;
+  z-index: 1;
+}
+
+.features-header h2 {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 5vw, 2.8rem);
+  font-weight: 700;
+  background: linear-gradient(135deg, #fff 0%, var(--gold) 50%, var(--accent-light) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 0.75rem;
+}
+
+.features-subtitle {
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 3rem;
+  position: relative;
+  z-index: 1;
+}
+
+.feature-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  padding: 2rem 1.5rem;
+  text-align: center;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  position: relative;
+  overflow: hidden;
+}
+
+.feature-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent) 0%, var(--gold) 50%, var(--success) 100%);
+  transform: scaleX(0);
+  transition: transform 0.4s ease;
+}
+
+.feature-card:hover {
+  transform: translateY(-8px);
+  border-color: var(--accent);
+  box-shadow: 0 15px 40px rgba(233, 69, 96, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.feature-card:hover::before {
+  transform: scaleX(1);
+}
+
+.feature-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  display: block;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+}
+
+.feature-card h3 {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.75rem;
+}
+
+.feature-card p {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.problems-solved {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-md);
+  padding: 2rem;
+  position: relative;
+  z-index: 1;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.problems-solved h3 {
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: center;
+  margin-bottom: 1.5rem;
+  background: linear-gradient(135deg, var(--accent-light) 0%, var(--success) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.problems-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.25rem;
+}
+
+.problem-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all 0.3s ease;
+}
+
+.problem-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--accent);
+  transform: translateX(5px);
+}
+
+.problem-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.problem-item strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.problem-item p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin: 0;
+  line-height: 1.5;
+}
+
 /* ============ PROMPT SECTION ============ */
 .prompt-section {
   max-width: 700px;
@@ -1906,6 +2095,63 @@ body::before {
 
 /* Tablet and below (768px) */
 @media (max-width: 768px) {
+  .features-showcase {
+    padding: 0 1rem;
+    margin-bottom: 2rem;
+  }
+  
+  .features-container {
+    padding: 2rem 1.5rem;
+  }
+  
+  .features-header h2 {
+    font-size: 1.75rem;
+  }
+  
+  .features-subtitle {
+    font-size: 1rem;
+  }
+  
+  .features-grid {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+    margin-bottom: 2rem;
+  }
+  
+  .feature-card {
+    padding: 1.5rem 1.25rem;
+  }
+  
+  .feature-icon {
+    font-size: 2.5rem;
+  }
+  
+  .feature-card h3 {
+    font-size: 1.2rem;
+  }
+  
+  .feature-card p {
+    font-size: 0.9rem;
+  }
+  
+  .problems-solved {
+    padding: 1.5rem;
+  }
+  
+  .problems-solved h3 {
+    font-size: 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+  
+  .problems-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .problem-item {
+    padding: 1rem;
+  }
+  
   .header {
     padding: 2rem 1rem 1.5rem;
   }
@@ -2072,6 +2318,83 @@ body::before {
 
 /* Mobile phones (480px and below) */
 @media (max-width: 480px) {
+  .features-showcase {
+    padding: 0 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .features-container {
+    padding: 1.5rem 1rem;
+    border-radius: var(--radius-md);
+  }
+  
+  .features-header {
+    margin-bottom: 2rem;
+  }
+  
+  .features-header h2 {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .features-subtitle {
+    font-size: 0.9rem;
+  }
+  
+  .features-grid {
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .feature-card {
+    padding: 1.25rem 1rem;
+  }
+  
+  .feature-icon {
+    font-size: 2rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  .feature-card h3 {
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .feature-card p {
+    font-size: 0.85rem;
+  }
+  
+  .problems-solved {
+    padding: 1.25rem 1rem;
+  }
+  
+  .problems-solved h3 {
+    font-size: 1.3rem;
+    margin-bottom: 1rem;
+  }
+  
+  .problems-grid {
+    gap: 0.75rem;
+  }
+  
+  .problem-item {
+    padding: 0.9rem;
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .problem-icon {
+    font-size: 1.25rem;
+  }
+  
+  .problem-item strong {
+    font-size: 0.95rem;
+  }
+  
+  .problem-item p {
+    font-size: 0.85rem;
+  }
+  
   .header {
     padding: 1.5rem 0.75rem 1rem;
   }

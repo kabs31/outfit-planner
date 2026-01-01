@@ -302,6 +302,120 @@ function App() {
         </div>
       </header>
 
+      {/* Features Showcase Section */}
+      {!outfits.length && (
+        <div className="features-showcase">
+          <div className="features-container">
+            <div className="features-header">
+              <h2>🚀 What Makes This Special?</h2>
+              <p className="features-subtitle">The future of fashion shopping is here</p>
+            </div>
+            
+            <div className="features-grid">
+              <motion.div 
+                className="feature-card"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+              >
+                <div className="feature-icon">🤖</div>
+                <h3>AI-Powered Style</h3>
+                <p>Natural language understanding - just describe your vibe and we'll find the perfect outfit</p>
+              </motion.div>
+
+              <motion.div 
+                className="feature-card"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+              >
+                <div className="feature-icon">🛍️</div>
+                <h3>Multi-Store Magic</h3>
+                <p>Shop from ASOS & Amazon in one place. Mix and match products from different stores!</p>
+              </motion.div>
+
+              <motion.div 
+                className="feature-card"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+              >
+                <div className="feature-icon">✨</div>
+                <h3>Virtual Try-On</h3>
+                <p>See how outfits look on you using cutting-edge AI (IDM-VTON) - no more guessing!</p>
+              </motion.div>
+
+              <motion.div 
+                className="feature-card"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+              >
+                <div className="feature-icon">🎯</div>
+                <h3>Smart Filtering</h3>
+                <p>LLM-powered gender classification ensures you only see products meant for you</p>
+              </motion.div>
+
+              <motion.div 
+                className="feature-card"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+              >
+                <div className="feature-icon">💫</div>
+                <h3>Swipe to Discover</h3>
+                <p>Tinder-style interface makes finding your style fun and intuitive</p>
+              </motion.div>
+
+              <motion.div 
+                className="feature-card"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 }}
+              >
+                <div className="feature-icon">🔮</div>
+                <h3>Cutting-Edge Tech</h3>
+                <p>Built with Groq LLM, Replicate AI, and real-time e-commerce APIs</p>
+              </motion.div>
+            </div>
+
+            <div className="problems-solved">
+              <h3>💡 Problems We Solve</h3>
+              <div className="problems-grid">
+                <div className="problem-item">
+                  <span className="problem-icon">❌</span>
+                  <div>
+                    <strong>No more endless scrolling</strong>
+                    <p>AI finds exactly what you're looking for</p>
+                  </div>
+                </div>
+                <div className="problem-item">
+                  <span className="problem-icon">❌</span>
+                  <div>
+                    <strong>No more wrong sizes</strong>
+                    <p>Virtual try-on shows how it actually looks</p>
+                  </div>
+                </div>
+                <div className="problem-item">
+                  <span className="problem-icon">❌</span>
+                  <div>
+                    <strong>No more store hopping</strong>
+                    <p>Browse multiple stores in one place</p>
+                  </div>
+                </div>
+                <div className="problem-item">
+                  <span className="problem-icon">❌</span>
+                  <div>
+                    <strong>No more style confusion</strong>
+                    <p>LLM understands your fashion language</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Prompt Input Section */}
       {!outfits.length && (
         <div className="prompt-section">
