@@ -16,9 +16,14 @@ aiofiles==23.2.1
 # Image Processing
 Pillow>=10.4.0
 cloudinary==1.38.0
+rembg>=2.0.50
+
+# Replicate API (Virtual Try-On)
+replicate>=0.25.0
 
 # Firebase Auth
 firebase-admin>=6.0.0
+python-jose[cryptography]>=3.3.0
 
 # Utilities
 python-dotenv==1.0.0
