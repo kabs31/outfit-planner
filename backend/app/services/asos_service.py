@@ -7,6 +7,7 @@ import httpx
 import logging
 from typing import List, Dict, Optional
 from app.config import settings
+from app.services.llm_service import llm_service
 
 logger = logging.getLogger(__name__)
 
@@ -92,10 +93,12 @@ class ASOSService:
                 
                 logger.info(f"Found {len(products)} ASOS products for: {query}")
                 
-                # Transform and filter by gender
+                # Transform products
                 transformed = self._transform_products(products, category)
-                filtered = self._filter_by_gender(transformed, gender)
-                logger.info(f"After gender filter ({gender}): {len(filtered)} products")
+                
+                # Filter by gender using LLM
+                filtered = await llm_service.classify_product_gender(transformed, gender)
+                logger.info(f"After LLM gender filter ({gender}): {len(filtered)} products")
                 return filtered
                 
         except Exception as e:
@@ -125,44 +128,6 @@ class ASOSService:
         search_query = f"{gender} {query} dress".strip()
         return await self.search_products(search_query, category="dress", limit=limit)
     
-    def _filter_by_gender(self, products: List[Dict], gender: str) -> List[Dict]:
-        """Filter out products that don't match the specified gender - strict filtering"""
-        if gender == "men":
-            # For men's products, exclude women/ladies/girls/dresses/skirts
-            exclude_keywords = [
-                "women", "woman", "womens", "ladies", "girl", "girls",
-                "dress", "dresses", "skirt", "skirts", "blouse", "bra", 
-                "lingerie", "maternity", "female", "feminine"
-            ]
-            # Must include men keywords (strict requirement)
-            include_keywords = ["men", "mens", "man", "male", "gentleman"]
-        else:
-            # For women's products, exclude men/boys
-            exclude_keywords = ["men", "mans", "mens", "boy", "boys", "male", "gentleman"]
-            include_keywords = []  # No strict requirement for women
-        
-        filtered = []
-        for product in products:
-            name = product.get("name", "").lower()
-            description = (product.get("description", "") or "").lower()
-            full_text = name + " " + description
-            
-            # Check if it has excluded keywords
-            has_excluded = any(keyword in full_text for keyword in exclude_keywords)
-            
-            # For men, require men keywords (strict)
-            if gender == "men":
-                has_men_keyword = any(keyword in full_text for keyword in include_keywords)
-                if has_excluded or not has_men_keyword:
-                    continue
-            else:
-                # For women, just exclude men products
-                if has_excluded:
-                    continue
-            
-            filtered.append(product)
-        
-        return filtered
     
     def _transform_products(self, products: List[Dict], category: str) -> List[Dict]:
         """Transform ASOS API response to our product format"""

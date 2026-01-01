@@ -257,6 +257,170 @@ Example output:
         logger.info(f"Generated search query: {query}")
         return query
     
+    async def classify_product_gender(
+        self,
+        products: list,
+        target_gender: str
+    ) -> list:
+        """
+        Use LLM to classify products by gender
+        
+        Args:
+            products: List of product dicts with name, description, category, etc.
+            target_gender: 'men' or 'women' - filter to only return products for this gender
+            
+        Returns:
+            List of products that match the target gender
+        """
+        if not self.is_configured:
+            logger.warning("Groq not configured - using keyword fallback for gender filtering")
+            return self._fallback_gender_filter(products, target_gender)
+        
+        if not products:
+            return []
+        
+        try:
+            # Batch products for efficiency (process up to 10 at a time)
+            batch_size = 10
+            filtered_products = []
+            
+            for i in range(0, len(products), batch_size):
+                batch = products[i:i + batch_size]
+                
+                # Prepare product data for LLM
+                product_data = []
+                for p in batch:
+                    product_data.append({
+                        "name": p.get("name", ""),
+                        "description": p.get("description", ""),
+                        "category": p.get("category", ""),
+                        "brand": p.get("brand", "")
+                    })
+                
+                # Create prompt for LLM
+                system_prompt = f"""You are a fashion product classifier. Determine if each product is for MEN or WOMEN.
+
+Target gender: {target_gender.upper()}
+
+For each product, analyze:
+- Product name/title
+- Description
+- Category
+- Brand
+
+Return ONLY products that are clearly for {target_gender.upper()}.
+
+Rules:
+- If product is unisex/gender-neutral, include it ONLY if it's commonly worn by {target_gender}
+- Exclude products explicitly for the opposite gender
+- Dresses, skirts, blouses are typically WOMEN
+- Men's suits, ties, men's jeans are typically MEN
+
+Respond with JSON array of indices (0-based) of products that match {target_gender.upper()}.
+Example: [0, 2, 4] means products at indices 0, 2, and 4 match.
+
+Return ONLY the JSON array, no other text."""
+                
+                user_prompt = f"Products to classify:\n{json.dumps(product_data, indent=2)}\n\nReturn array of indices for {target_gender.upper()} products:"
+                
+                # Call Groq API
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(
+                        GROQ_API_URL,
+                        headers={
+                            "Authorization": f"Bearer {self.api_key}",
+                            "Content-Type": "application/json"
+                        },
+                        json={
+                            "model": self.model,
+                            "messages": [
+                                {"role": "system", "content": system_prompt},
+                                {"role": "user", "content": user_prompt}
+                            ],
+                            "temperature": 0.1,  # Low temperature for consistent classification
+                            "max_tokens": 200
+                        },
+                        timeout=30.0
+                    )
+                    
+                    if response.status_code != 200:
+                        logger.error(f"Groq API error for gender classification: {response.status_code}")
+                        # Fallback to keyword filtering for this batch
+                        filtered_products.extend(self._fallback_gender_filter(batch, target_gender))
+                        continue
+                    
+                    data = response.json()
+                    content = data["choices"][0]["message"]["content"]
+                    
+                    # Extract indices from response
+                    try:
+                        # Try to extract JSON array from response
+                        parsed_data = self._extract_json(content)
+                        
+                        # Handle different response formats
+                        if isinstance(parsed_data, list):
+                            indices = parsed_data
+                        elif isinstance(parsed_data, dict) and "indices" in parsed_data:
+                            indices = parsed_data["indices"]
+                        elif isinstance(parsed_data, dict) and "products" in parsed_data:
+                            # LLM might return product objects instead of indices
+                            # In this case, use fallback
+                            indices = []
+                        else:
+                            indices = []
+                        
+                        if isinstance(indices, list) and len(indices) > 0:
+                            # Add products at those indices
+                            for idx in indices:
+                                if isinstance(idx, int) and 0 <= idx < len(batch):
+                                    filtered_products.append(batch[idx])
+                        else:
+                            # If no valid indices, use fallback
+                            filtered_products.extend(self._fallback_gender_filter(batch, target_gender))
+                    except Exception as e:
+                        # Fallback if JSON parsing fails
+                        logger.warning(f"Could not parse LLM response: {content[:100]} - Error: {e}")
+                        filtered_products.extend(self._fallback_gender_filter(batch, target_gender))
+            
+            logger.info(f"✅ LLM filtered {len(products)} products → {len(filtered_products)} for {target_gender}")
+            return filtered_products
+            
+        except Exception as e:
+            logger.error(f"❌ LLM gender classification failed: {e}")
+            # Fallback to keyword filtering
+            return self._fallback_gender_filter(products, target_gender)
+    
+    def _fallback_gender_filter(self, products: list, target_gender: str) -> list:
+        """Fallback keyword-based gender filtering"""
+        if target_gender == "men":
+            exclude_keywords = [
+                "women", "woman", "womens", "ladies", "girl", "girls",
+                "dress", "dresses", "skirt", "skirts", "blouse", "bra",
+                "lingerie", "maternity", "female", "feminine"
+            ]
+            include_keywords = ["men", "mens", "man", "male", "gentleman"]
+        else:
+            exclude_keywords = ["men", "mans", "mens", "boy", "boys", "male", "gentleman"]
+            include_keywords = []
+        
+        filtered = []
+        for product in products:
+            name = (product.get("name", "") or "").lower()
+            description = (product.get("description", "") or "").lower()
+            full_text = name + " " + description
+            
+            has_excluded = any(kw in full_text for kw in exclude_keywords)
+            
+            if target_gender == "men":
+                has_men_keyword = any(kw in full_text for kw in include_keywords)
+                if not has_excluded and has_men_keyword:
+                    filtered.append(product)
+            else:
+                if not has_excluded:
+                    filtered.append(product)
+        
+        return filtered
+    
     async def health_check(self) -> Dict[str, str]:
         """Check if LLM service is healthy"""
         if not self.is_configured:

@@ -9,6 +9,7 @@ import httpx
 import logging
 from typing import List, Dict
 from app.config import settings
+from app.services.llm_service import llm_service
 
 logger = logging.getLogger(__name__)
 
@@ -100,43 +101,11 @@ class AmazonService:
         else:
             search_query = f"men shirt t-shirt polo {query}".strip()
         
-        products = await self.search_products(search_query, limit=limit * 2, sort_by="BEST_SELLERS")
+        products = await self.search_products(search_query, limit=limit * 3, sort_by="BEST_SELLERS")
         transformed = self._transform_products(products, "top")
         
-        # Filter out wrong gender - more aggressive filtering
-        if gender == "women":
-            # For women's products, exclude items with men/boys
-            exclude_patterns = [" men ", " mens ", " men's ", "for men", "boys", " boy ", "male", "gentleman"]
-        else:
-            # For men's products, exclude women/ladies/girls/dresses/skirts
-            exclude_patterns = [
-                " women ", " womens ", " women's ", "for women", "ladies", 
-                " girl", "girls", "dress", "dresses", "skirt", "skirts",
-                "female", "feminine"
-            ]
-            # Must include men keywords (strict requirement)
-            include_patterns = ["men", "mens", "man", "male", "gentleman"]
-        
-        filtered = []
-        for p in transformed:
-            name_lower = " " + p.get("name", "").lower() + " "
-            description_lower = " " + (p.get("description", "") or "").lower() + " "
-            full_text = name_lower + description_lower
-            
-            # Check if it has excluded patterns
-            has_excluded = any(pat in full_text for pat in exclude_patterns)
-            
-            # For men, require men keywords (more strict)
-            if gender == "men":
-                has_men_keyword = any(pat in full_text for pat in include_patterns)
-                if has_excluded or not has_men_keyword:
-                    continue
-            else:
-                # For women, just exclude men products
-                if has_excluded:
-                    continue
-            
-            filtered.append(p)
+        # Filter by gender using LLM
+        filtered = await llm_service.classify_product_gender(transformed, gender)
         
         return filtered[:limit]
     
@@ -151,40 +120,8 @@ class AmazonService:
         products = await self.search_products(search_query, limit=limit * 3, sort_by="BEST_SELLERS")
         transformed = self._transform_products(products, "bottom")
         
-        # Filter out wrong gender - more aggressive filtering
-        if gender == "women":
-            # For women's products, exclude items with men/boys
-            exclude_patterns = [" men ", " mens ", " men's ", "for men", "boys", " boy ", "male", "gentleman"]
-        else:
-            # For men's products, exclude women/ladies/girls/dresses/skirts
-            exclude_patterns = [
-                " women ", " womens ", " women's ", "for women", "ladies", 
-                " girl", "girls", "dress", "dresses", "skirt", "skirts",
-                "female", "feminine"
-            ]
-            # Must include men keywords (strict requirement)
-            include_patterns = ["men", "mens", "man", "male", "gentleman"]
-        
-        filtered = []
-        for p in transformed:
-            name_lower = " " + p.get("name", "").lower() + " "
-            description_lower = " " + (p.get("description", "") or "").lower() + " "
-            full_text = name_lower + description_lower
-            
-            # Check if it has excluded patterns
-            has_excluded = any(pat in full_text for pat in exclude_patterns)
-            
-            # For men, require men keywords (more strict)
-            if gender == "men":
-                has_men_keyword = any(pat in full_text for pat in include_patterns)
-                if has_excluded or not has_men_keyword:
-                    continue
-            else:
-                # For women, just exclude men products
-                if has_excluded:
-                    continue
-            
-            filtered.append(p)
+        # Filter by gender using LLM
+        filtered = await llm_service.classify_product_gender(transformed, gender)
         
         return filtered[:limit]
     
