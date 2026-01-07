@@ -735,8 +735,8 @@ body::before {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 200px;
-  height: 200px;
+  width: 250px;
+  height: 300px;
   border: 2px dashed var(--card-border);
   border-radius: var(--radius-lg);
   cursor: pointer;
@@ -758,7 +758,7 @@ body::before {
 
 .user-image-preview {
   position: relative;
-  width: 200px;
+  width: 250px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -766,12 +766,13 @@ body::before {
 }
 
 .user-image-preview img {
-  width: 200px;
-  height: 200px;
-  object-fit: cover;
+  width: 250px;
+  height: 300px;
+  object-fit: contain;
   border-radius: var(--radius-lg);
   border: 3px solid var(--success);
   box-shadow: 0 10px 30px rgba(0, 217, 166, 0.3);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .remove-image-btn {
@@ -808,7 +809,13 @@ body::before {
   .upload-with-example {
     flex-direction: row;
     align-items: flex-start;
+    justify-content: center;
     gap: 2rem;
+  }
+  
+  .example-image-container,
+  .user-image-preview {
+    flex: 0 0 auto;
   }
 }
 
@@ -828,13 +835,14 @@ body::before {
 }
 
 .example-image {
-  width: 160px;
-  height: 200px;
-  object-fit: cover;
+  width: 250px;
+  height: 300px;
+  object-fit: contain;
   border-radius: var(--radius-md);
   border: 2px solid var(--card-border);
   opacity: 0.9;
   transition: all 0.3s ease;
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .example-image:hover {
@@ -2514,13 +2522,22 @@ body::before {
   .upload-label,
   .user-image-preview {
     width: 100%;
-    max-width: 250px;
+    max-width: 280px;
   }
   
   .user-image-preview img {
     width: 100%;
     height: auto;
-    aspect-ratio: 1;
+    max-height: 340px;
+    object-fit: contain;
+  }
+  
+  .example-image {
+    width: 100%;
+    max-width: 280px;
+    height: auto;
+    max-height: 340px;
+    object-fit: contain;
   }
   
   .swipe-container {
@@ -2856,8 +2873,24 @@ body::before {
   .upload-label,
   .user-image-preview {
     width: 100%;
-    max-width: 200px;
-    height: 200px;
+    max-width: 240px;
+    height: auto;
+    min-height: 280px;
+  }
+  
+  .user-image-preview img {
+    width: 100%;
+    height: auto;
+    max-height: 300px;
+    object-fit: contain;
+  }
+  
+  .example-image {
+    width: 100%;
+    max-width: 240px;
+    height: auto;
+    max-height: 300px;
+    object-fit: contain;
   }
   
   .upload-icon {
